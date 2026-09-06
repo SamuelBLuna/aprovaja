@@ -135,10 +135,10 @@ export default function Alunos() {
             const cronograma = cronogramaPorAluno[a.aluno_id]
             return (
               <div key={a.aluno_id} className="bg-white border border-ink/10 rounded-lg overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 cursor-pointer" onClick={() => abrirDetalhe(a.aluno_id)}>
-                  <div>
-                    <p className="text-ink font-medium text-sm">{a.nome}</p>
-                    <p className="text-ink/40 text-xs">{a.email}</p>
+                <div className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer" onClick={() => abrirDetalhe(a.aluno_id)}>
+                  <div className="min-w-0">
+                    <p className="text-ink font-medium text-sm truncate">{a.nome}</p>
+                    <p className="text-ink/40 text-xs truncate">{a.email}</p>
                   </div>
                   <div className="flex items-center gap-6 shrink-0">
                     <div className="text-right hidden sm:block">

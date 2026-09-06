@@ -109,10 +109,10 @@ export default function GerenciarTurma({ turma, onFechar, onAtualizada, onExclui
         ) : (
           <div className="border border-ink/10 rounded divide-y divide-ink/10 max-h-64 overflow-y-auto">
             {alunos.map((a) => (
-              <div key={a.aluno_id} className="flex items-center justify-between px-3 py-2">
-                <div>
-                  <p className="text-sm text-ink">{a.profiles?.nome || '(sem nome)'}</p>
-                  <p className="text-xs text-ink/40">{a.profiles?.email}</p>
+              <div key={a.aluno_id} className="flex items-center justify-between gap-2 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm text-ink truncate">{a.profiles?.nome || '(sem nome)'}</p>
+                  <p className="text-xs text-ink/40 truncate">{a.profiles?.email}</p>
                 </div>
                 <button onClick={() => removerAluno(a.aluno_id, a.profiles?.nome || 'este aluno')} className="text-erro text-xs hover:underline shrink-0">
                   Remover da turma

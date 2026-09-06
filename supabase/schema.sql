@@ -189,8 +189,9 @@ create table public.cronograma_questoes (
 create table public.cronograma_conclusoes (
   cronograma_id uuid not null references public.cronograma_itens(id) on delete cascade,
   aluno_id uuid not null references public.profiles(id) on delete cascade,
+  data date not null, -- o dia específico marcado (um item pode cobrir vários dias)
   concluido_em timestamptz not null default now(),
-  primary key (cronograma_id, aluno_id)
+  primary key (cronograma_id, aluno_id, data)
 );
 
 -- =====================================================================

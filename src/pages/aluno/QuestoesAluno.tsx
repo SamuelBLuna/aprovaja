@@ -6,7 +6,7 @@ import QuestionCard from '../../components/QuestionCard'
 import SemTurma from '../../components/SemTurma'
 import { usePossuiTurma } from '../../lib/usePossuiTurma'
 
-type QuestaoComGrupo = Questao & { grupos_questoes?: { texto_base: string } | null }
+type QuestaoComGrupo = Questao & { grupos_questoes?: { texto_base: string } | null; topicos?: { nome: string } | null }
 
 function embaralhar<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -40,7 +40,7 @@ export default function QuestoesAluno() {
 
   async function iniciar() {
     if (!profile) return
-    let query = supabase.from('questoes').select('*, grupos_questoes(texto_base)').eq('materia_id', materiaId)
+    let query = supabase.from('questoes').select('*, grupos_questoes(texto_base), topicos(nome)').eq('materia_id', materiaId)
     if (topicoId) query = query.eq('topico_id', topicoId)
     const { data } = await query
     const pool = (data as QuestaoComGrupo[]) || []
@@ -100,7 +100,14 @@ export default function QuestoesAluno() {
           <button onClick={() => setPraticando(false)} className="text-ink/60 hover:underline text-sm">← Trocar filtro</button>
           <span className="text-ink/60 text-sm">Questão {indice + 1} de {questoes.length}</span>
         </div>
-        <QuestionCard key={questaoAtual.id} questao={questaoAtual} textoBase={questaoAtual.grupos_questoes?.texto_base} />
+        <QuestionCard
+          key={questaoAtual.id}
+          questao={questaoAtual}
+          textoBase={questaoAtual.grupos_questoes?.texto_base}
+          materiaNome={materias.find((m) => m.id === materiaId)?.nome}
+          topicoNome={questaoAtual.topicos?.nome}
+          permitirRepetir
+        />
         <div className="flex justify-between mt-4">
           <button disabled={indice === 0} onClick={() => setIndice((i) => i - 1)} className="text-sm text-ink/60 disabled:opacity-30 hover:underline">← Anterior</button>
           <button disabled={indice === questoes.length - 1} onClick={() => setIndice((i) => i + 1)} className="text-sm text-gold disabled:opacity-30 hover:underline">Próxima →</button>

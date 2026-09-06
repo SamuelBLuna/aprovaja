@@ -17,6 +17,21 @@ function estaAtivaDeVerdade(t: Turma) {
   return t.status === 'ativa' && t.data_fim >= isoHoje()
 }
 
+// o input datetime-local não sabe de fuso horário — sem essa conversão,
+// o valor digitado (hora local) era salvo como se já fosse UTC, e a hora
+// exibida depois saía errada (ex: 22:00 virava 19:00 em Brasília).
+function datetimeLocalParaISO(valor: string): string | null {
+  if (!valor) return null
+  return new Date(valor).toISOString()
+}
+
+function isoParaDatetimeLocal(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export default function Simulados() {
   const { profile } = useAuth()
   const [turmas, setTurmas] = useState<Turma[]>([])
@@ -106,7 +121,7 @@ export default function Simulados() {
     setTitulo(s.titulo)
     setDescricao(s.descricao || '')
     setTempoLimite(s.tempo_limite_minutos)
-    setDataLimite(s.data_limite ? s.data_limite.slice(0, 16) : '')
+    setDataLimite(isoParaDatetimeLocal(s.data_limite))
     setMateriaId('')
 
     const { data } = await supabase.from('simulado_questoes').select('questoes(*)').eq('simulado_id', s.id)
@@ -125,7 +140,7 @@ export default function Simulados() {
     if (editandoId) {
       const { error } = await supabase.from('simulados').update({
         turma_id: turmaId, titulo: titulo.trim(), descricao: descricao.trim() || null,
-        tempo_limite_minutos: tempoLimite, data_limite: dataLimite || null,
+        tempo_limite_minutos: tempoLimite, data_limite: datetimeLocalParaISO(dataLimite),
       }).eq('id', editandoId)
       if (error) { alert('Erro ao salvar: ' + error.message); return }
 
@@ -139,7 +154,7 @@ export default function Simulados() {
 
     const { data, error } = await supabase.from('simulados').insert({
       turma_id: turmaId, professor_id: profile.id, titulo: titulo.trim(), descricao: descricao.trim() || null,
-      tempo_limite_minutos: tempoLimite, data_limite: dataLimite || null,
+      tempo_limite_minutos: tempoLimite, data_limite: datetimeLocalParaISO(dataLimite),
     }).select().single()
 
     if (!error && data) {

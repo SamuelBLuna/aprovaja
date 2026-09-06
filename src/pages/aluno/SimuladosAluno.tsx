@@ -39,6 +39,12 @@ export default function SimuladosAluno() {
   async function iniciarOuContinuar(sim: SimuladoComTurma) {
     if (!profile) return
     let tentativa = tentativas[sim.id]
+
+    if (!tentativa && sim.data_limite && new Date(sim.data_limite) < new Date()) {
+      alert('O prazo para fazer este simulado já passou.')
+      return
+    }
+
     if (!tentativa) {
       const { data, error } = await supabase.from('simulado_tentativas').insert({ simulado_id: sim.id, aluno_id: profile.id }).select().single()
       if (error || !data) return
@@ -50,23 +56,28 @@ export default function SimuladosAluno() {
     const { data: sq } = await supabase.from('simulado_questoes').select('ordem, questoes(*, grupos_questoes(texto_base))').eq('simulado_id', sim.id).order('ordem')
     const questoes = (sq || []).map((r: any) => r.questoes).filter(Boolean)
 
-    const decorrido = (Date.now() - new Date(tentativa.iniciado_em).getTime()) / 1000
-    const restante = sim.tempo_limite_minutos * 60 - decorrido
-    setTempoRestante(Math.max(0, restante))
     setEmAndamento({ simulado: sim, tentativa, questoes })
   }
 
+  // Recalcula sempre a partir do horário absoluto (início + limite), em vez de
+  // ir descontando 1 a 1 — assim o cronômetro não perde precisão se a aba
+  // ficar em segundo plano ou o navegador atrasar o timer.
   useEffect(() => {
     if (!emAndamento) return
-    intervalRef.current = window.setInterval(() => {
-      setTempoRestante((t) => {
-        if (t <= 1) {
-          finalizar()
-          return 0
-        }
-        return t - 1
-      })
-    }, 1000)
+    const inicioMs = new Date(emAndamento.tentativa.iniciado_em).getTime()
+    const limiteMs = inicioMs + emAndamento.simulado.tempo_limite_minutos * 60 * 1000
+
+    function atualizar() {
+      const restante = Math.max(0, Math.round((limiteMs - Date.now()) / 1000))
+      setTempoRestante(restante)
+      if (restante <= 0) {
+        if (intervalRef.current) window.clearInterval(intervalRef.current)
+        finalizar()
+      }
+    }
+
+    atualizar()
+    intervalRef.current = window.setInterval(atualizar, 1000)
     return () => { if (intervalRef.current) window.clearInterval(intervalRef.current) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emAndamento?.tentativa.id])

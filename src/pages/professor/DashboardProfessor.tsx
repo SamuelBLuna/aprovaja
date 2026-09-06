@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line } from 'recharts'
+import { Users, ListChecks, Target, AlertTriangle, LucideIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { Turma } from '../../lib/types'
 
@@ -139,11 +140,14 @@ export default function DashboardProfessor() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-            <MetricCard label="Alunos na turma" value={totalAlunos} />
-            <MetricCard label="Questões respondidas" value={totalRespondidas} />
-            <MetricCard label="Taxa de acerto geral" value={`${taxaGeral}%`} accent={taxaGeral >= 70} />
-            <Link to="/professor/questoes?revisao=1" className="bg-white border border-ink/10 rounded-lg p-5 shadow-sm hover:border-gold/40 transition-colors">
-              <p className="text-ink/60 text-sm mb-1">Questões p/ revisão</p>
+            <MetricCard icon={Users} label="Alunos na turma" value={totalAlunos} />
+            <MetricCard icon={ListChecks} label="Questões respondidas" value={totalRespondidas} />
+            <MetricCard icon={Target} label="Taxa de acerto geral" value={`${taxaGeral}%`} accent={taxaGeral >= 70} />
+            <Link to="/professor/questoes?revisao=1" className="bg-white border border-ink/10 rounded-lg p-5 shadow-sm hover:border-gold/40 hover:shadow-md transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-ink/60 text-sm">Questões p/ revisão</p>
+                <AlertTriangle className={`w-4 h-4 ${questoesRevisao > 0 ? 'text-erro' : 'text-ink/20'}`} />
+              </div>
               <p className={`font-serif text-3xl ${questoesRevisao > 0 ? 'text-erro' : 'text-ink'}`}>{questoesRevisao}</p>
             </Link>
           </div>
@@ -195,10 +199,13 @@ export default function DashboardProfessor() {
   )
 }
 
-function MetricCard({ label, value, accent, alerta }: { label: string; value: number | string; accent?: boolean; alerta?: boolean }) {
+function MetricCard({ label, value, accent, alerta, icon: Icon }: { label: string; value: number | string; accent?: boolean; alerta?: boolean; icon: LucideIcon }) {
   return (
-    <div className="bg-white border border-ink/10 rounded-lg p-5 shadow-sm">
-      <p className="text-ink/60 text-sm mb-1">{label}</p>
+    <div className="bg-white border border-ink/10 rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-ink/60 text-sm">{label}</p>
+        <Icon className="w-4 h-4 text-ink/25" />
+      </div>
       <p className={`font-serif text-3xl ${alerta ? 'text-erro' : accent ? 'text-acerto' : 'text-ink'}`}>{value}</p>
     </div>
   )

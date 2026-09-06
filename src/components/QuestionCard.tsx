@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Questao } from '../lib/types'
@@ -9,14 +9,46 @@ interface QuestionCardProps {
   tentativaId?: string | null
   onRespondida?: (correta: boolean) => void
   textoBase?: string | null
+  materiaNome?: string | null
+  topicoNome?: string | null
+  // true = banco livre (pode responder de novo à vontade)
+  // false (padrão) = "teste" (cronograma/simulado): trava depois da 1ª resposta
+  // e restaura o resultado se o aluno sair e voltar
+  permitirRepetir?: boolean
 }
 
-export default function QuestionCard({ questao, turmaId, tentativaId, onRespondida, textoBase }: QuestionCardProps) {
+export default function QuestionCard({
+  questao, turmaId, tentativaId, onRespondida, textoBase, materiaNome, topicoNome, permitirRepetir,
+}: QuestionCardProps) {
   const { profile } = useAuth()
   const [respondida, setRespondida] = useState(false)
   const [escolha, setEscolha] = useState<string | null>(null)
   const [correta, setCorreta] = useState(false)
+  const [verificando, setVerificando] = useState(!permitirRepetir)
   const [inicio] = useState(Date.now())
+
+  useEffect(() => {
+    if (permitirRepetir || !profile) { setVerificando(false); return }
+    let cancelado = false
+
+    async function verificarRespostaAnterior() {
+      let query = supabase.from('respostas').select('resposta_dada, correta').eq('aluno_id', profile!.id).eq('questao_id', questao.id)
+      if (tentativaId) query = query.eq('tentativa_id', tentativaId)
+      const { data } = await query.order('created_at', { ascending: false }).limit(1)
+      if (cancelado) return
+      const anterior = data?.[0]
+      if (anterior) {
+        setEscolha(anterior.resposta_dada)
+        setCorreta(anterior.correta)
+        setRespondida(true)
+      }
+      setVerificando(false)
+    }
+
+    verificarRespostaAnterior()
+    return () => { cancelado = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questao.id, tentativaId])
 
   async function responder(valor: string) {
     if (respondida || !profile) return
@@ -39,8 +71,18 @@ export default function QuestionCard({ questao, turmaId, tentativaId, onRespondi
     onRespondida?.(acertou)
   }
 
+  if (verificando) {
+    return <div className="bg-white border border-ink/10 rounded p-4 text-sm text-ink/40">Carregando…</div>
+  }
+
   return (
     <div className="bg-white border border-ink/10 rounded p-4">
+      {(materiaNome || topicoNome) && (
+        <div className="flex items-center gap-2 mb-2 text-xs">
+          {materiaNome && <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{materiaNome}</span>}
+          {topicoNome && <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{topicoNome}</span>}
+        </div>
+      )}
       {textoBase && (
         <div className="bg-paper/60 border border-ink/10 rounded p-3 mb-3 text-sm text-ink/70 whitespace-pre-wrap">
           {textoBase}

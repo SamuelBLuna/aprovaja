@@ -324,7 +324,7 @@ export default function Questoes() {
                         ) : (
                           <div key={q.id} className="bg-white border border-ink/10 rounded px-4 py-3 flex justify-between items-start">
                             <div>
-                              <div className="flex items-center gap-2 mb-1 text-xs">
+                              <div className="flex flex-wrap items-center gap-2 mb-1 text-xs">
                                 <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{q.tipo === 'multipla_escolha' ? 'Múltipla escolha' : 'V ou F'}</span>
                                 {q.precisa_revisao && <span className="bg-erro/10 text-erro px-2 py-0.5 rounded">Precisa revisão</span>}
                               </div>
@@ -365,8 +365,8 @@ export default function Questoes() {
           <div className="space-y-2">
             {avulsas.map((q) => (
               <div key={q.id} className="bg-white border border-ink/10 rounded px-4 py-3 flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1 text-xs">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1 text-xs">
                     <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{q.materias?.nome}</span>
                     {q.topicos?.nome && <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{q.topicos.nome}</span>}
                     <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{q.tipo === 'multipla_escolha' ? 'Múltipla escolha' : 'V ou F'}</span>

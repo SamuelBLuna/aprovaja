@@ -7,6 +7,7 @@ import { isoHoje, somarDias, enumerarDatas } from '../../lib/dates'
 import MonthCalendar from '../../components/MonthCalendar'
 import QuestionCard from '../../components/QuestionCard'
 import SemTurma from '../../components/SemTurma'
+import { ListChecks, Target, Flame, AlertTriangle } from 'lucide-react'
 import { usePossuiTurma } from '../../lib/usePossuiTurma'
 
 type ItemComMateria = CronogramaItem & { materias?: { nome: string; cor: string } | null; topicos?: { nome: string } | null }
@@ -33,8 +34,13 @@ export default function DashboardAluno() {
   const [selectedDate, setSelectedDate] = useState(isoHoje())
   const [todosItens, setTodosItens] = useState<ItemComMateria[]>([])
   const [datasComItens, setDatasComItens] = useState<Set<string>>(new Set())
+
+  // conclusão manual (itens SEM questão vinculada) — por dia, não por item inteiro
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
-  const [contagemQuestoesPorItem, setContagemQuestoesPorItem] = useState<Record<string, number>>({})
+
+  // itens COM questão vinculada: conclusão é automática (responder todas)
+  const [questaoIdsPorItem, setQuestaoIdsPorItem] = useState<Record<string, string[]>>({})
+  const [respondidasPorItem, setRespondidasPorItem] = useState<Record<string, Set<string>>>({})
   const [questoesPorItem, setQuestoesPorItem] = useState<Record<string, QuestaoComGrupo[]>>({})
   const [mostrarQuestoesDoDia, setMostrarQuestoesDoDia] = useState(false)
   const [carregandoQuestoesDoDia, setCarregandoQuestoesDoDia] = useState(false)
@@ -53,9 +59,10 @@ export default function DashboardAluno() {
     carregarUltimoSimulado()
   }, [profile])
 
-  useEffect(() => { if (turmaId) carregarItens() }, [turmaId])
+  useEffect(() => { if (turmaId && profile) carregarItens() }, [turmaId, profile])
 
   async function carregarItens() {
+    if (!profile) return
     const { data } = await supabase.from('cronograma_itens').select('*, materias(nome, cor), topicos(nome)').eq('turma_id', turmaId)
     const itens = (data as ItemComMateria[]) || []
     setTodosItens(itens)
@@ -63,17 +70,40 @@ export default function DashboardAluno() {
     itens.forEach((i) => enumerarDatas(i.data_inicio, i.data_fim).forEach((d) => datas.add(d)))
     setDatasComItens(datas)
 
-    if (profile) {
-      const { data: conclusoes } = await supabase.from('cronograma_conclusoes').select('cronograma_id').eq('aluno_id', profile.id)
-      setConcluidos(new Set((conclusoes || []).map((c: any) => c.cronograma_id)))
-    }
+    // conclusão manual por dia (itens sem questão)
+    const { data: conclusoes } = await supabase.from('cronograma_conclusoes').select('cronograma_id, data').eq('aluno_id', profile.id)
+    setConcluidos(new Set((conclusoes || []).map((c: any) => `${c.cronograma_id}_${c.data}`)))
 
-    const contagens: Record<string, number> = {}
-    await Promise.all(itens.map(async (item) => {
-      const { count } = await supabase.from('cronograma_questoes').select('*', { count: 'exact', head: true }).eq('cronograma_id', item.id)
-      contagens[item.id] = count || 0
-    }))
-    setContagemQuestoesPorItem(contagens)
+    // questões vinculadas a cada item, de uma vez só
+    const { data: vinculos } = await supabase.from('cronograma_questoes').select('cronograma_id, questao_id').in('cronograma_id', itens.map((i) => i.id))
+    const idsPorItem: Record<string, string[]> = {}
+    for (const v of (vinculos as any[]) || []) {
+      if (!idsPorItem[v.cronograma_id]) idsPorItem[v.cronograma_id] = []
+      idsPorItem[v.cronograma_id].push(v.questao_id)
+    }
+    setQuestaoIdsPorItem(idsPorItem)
+
+    const todosOsIds = Array.from(new Set(Object.values(idsPorItem).flat()))
+    if (todosOsIds.length > 0) {
+      const { data: respostas } = await supabase.from('respostas').select('questao_id').eq('aluno_id', profile.id).in('questao_id', todosOsIds)
+      const respondidosSet = new Set((respostas || []).map((r: any) => r.questao_id))
+      const porItem: Record<string, Set<string>> = {}
+      for (const [itemId, ids] of Object.entries(idsPorItem)) {
+        porItem[itemId] = new Set(ids.filter((id) => respondidosSet.has(id)))
+      }
+      setRespondidasPorItem(porItem)
+
+      // backfill silencioso: se um item já está 100% respondido, registra a
+      // conclusão automática pro professor conseguir ver isso no relatório dele
+      for (const item of itens) {
+        const ids = idsPorItem[item.id] || []
+        if (ids.length > 0 && (porItem[item.id]?.size || 0) === ids.length) {
+          marcarConclusaoAutomatica(item.id, item.data_inicio, false)
+        }
+      }
+    } else {
+      setRespondidasPorItem({})
+    }
   }
 
   async function carregarIndicadores() {
@@ -83,17 +113,15 @@ export default function DashboardAluno() {
     const total = lista.length
     const acertos = lista.filter((r: any) => r.correta).length
 
-    // dias consecutivos com pelo menos 1 questão respondida
     const diasComRespostaSet = new Set(lista.map((r: any) => r.created_at.slice(0, 10)))
     let streak = 0
     let cursor = isoHoje()
-    if (!diasComRespostaSet.has(cursor)) cursor = somarDias(cursor, -1) // permite não ter respondido hoje ainda
+    if (!diasComRespostaSet.has(cursor)) cursor = somarDias(cursor, -1)
     while (diasComRespostaSet.has(cursor)) {
       streak += 1
       cursor = somarDias(cursor, -1)
     }
 
-    // questões cuja resposta mais recente foi errada
     const ultimaPorQuestao = new Map<string, boolean>()
     for (const r of lista) {
       if (!ultimaPorQuestao.has(r.questao_id)) ultimaPorQuestao.set(r.questao_id, r.correta)
@@ -128,14 +156,39 @@ export default function DashboardAluno() {
     }
   }
 
-  async function marcarConcluido(itemId: string, concluido: boolean) {
+  // conclusão manual, só pra itens SEM questão — vale só pro dia selecionado
+  async function marcarConcluidoManual(itemId: string, jaFeito: boolean) {
     if (!profile) return
-    if (concluido) {
-      await supabase.from('cronograma_conclusoes').delete().eq('cronograma_id', itemId).eq('aluno_id', profile.id)
+    const chave = `${itemId}_${selectedDate}`
+    if (jaFeito) {
+      setConcluidos((prev) => { const next = new Set(prev); next.delete(chave); return next })
+      await supabase.from('cronograma_conclusoes').delete().eq('cronograma_id', itemId).eq('aluno_id', profile.id).eq('data', selectedDate)
     } else {
-      await supabase.from('cronograma_conclusoes').insert({ cronograma_id: itemId, aluno_id: profile.id })
+      setConcluidos((prev) => new Set(prev).add(chave))
+      await supabase.from('cronograma_conclusoes').insert({ cronograma_id: itemId, aluno_id: profile.id, data: selectedDate })
     }
-    carregarItens()
+  }
+
+  // conclusão automática, pra itens COM questão — dispara quando a última é respondida
+  async function marcarConclusaoAutomatica(itemId: string, dataReferencia: string, atualizarEstado = true) {
+    if (!profile) return
+    if (atualizarEstado) setConcluidos((prev) => new Set(prev).add(`${itemId}_${dataReferencia}`))
+    await supabase.from('cronograma_conclusoes').upsert(
+      { cronograma_id: itemId, aluno_id: profile.id, data: dataReferencia },
+      { onConflict: 'cronograma_id,aluno_id,data', ignoreDuplicates: true }
+    )
+  }
+
+  function handleQuestaoRespondida(item: ItemComMateria, questaoId: string) {
+    setRespondidasPorItem((prev) => {
+      const atual = new Set(prev[item.id] || [])
+      atual.add(questaoId)
+      const proximo = { ...prev, [item.id]: atual }
+      const total = questaoIdsPorItem[item.id]?.length || 0
+      if (total > 0 && atual.size === total) marcarConclusaoAutomatica(item.id, item.data_inicio)
+      return proximo
+    })
+    carregarIndicadores()
   }
 
   useEffect(() => { setMostrarQuestoesDoDia(false) }, [selectedDate, turmaId])
@@ -159,8 +212,9 @@ export default function DashboardAluno() {
   if (possuiTurma === false) return <SemTurma />
 
   const itensDoDia = todosItens.filter((i) => selectedDate >= i.data_inicio && selectedDate <= i.data_fim)
-  const itensComQuestoes = itensDoDia.filter((i) => (contagemQuestoesPorItem[i.id] ?? 0) > 0)
-  const totalQuestoesDoDia = itensComQuestoes.reduce((soma, i) => soma + (contagemQuestoesPorItem[i.id] ?? 0), 0)
+  const itensComQuestoes = itensDoDia.filter((i) => (questaoIdsPorItem[i.id]?.length ?? 0) > 0)
+  const itensSemQuestao = itensDoDia.filter((i) => (questaoIdsPorItem[i.id]?.length ?? 0) === 0)
+  const totalQuestoesDoDia = itensComQuestoes.reduce((soma, i) => soma + (questaoIdsPorItem[i.id]?.length ?? 0), 0)
 
   if (turmas.length === 0) {
     return <p className="text-ink/50 text-sm">Carregando…</p>
@@ -180,7 +234,7 @@ export default function DashboardAluno() {
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 mb-6">
         <MonthCalendar selectedDate={selectedDate} onSelectDate={setSelectedDate} markedDates={datasComItens} />
 
-        <div className="bg-white border border-ink/10 rounded-lg shadow-sm p-5 flex flex-col">
+        <div className="bg-white border border-ink/10 rounded-lg shadow-sm p-5 flex flex-col min-w-0">
           <h2 className="font-serif text-lg text-ink mb-1">
             Cronograma de {selectedDate === isoHoje() ? 'hoje' : new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
           </h2>
@@ -189,14 +243,13 @@ export default function DashboardAluno() {
           </p>
 
           <div className="space-y-2 flex-1">
-            {itensDoDia.map((item) => {
-              const feito = concluidos.has(item.id)
-              const qtd = contagemQuestoesPorItem[item.id] ?? 0
+            {itensSemQuestao.map((item) => {
+              const feito = concluidos.has(`${item.id}_${selectedDate}`)
               return (
                 <div key={item.id} className={`border rounded-lg px-4 py-3 transition-colors ${feito ? 'border-ink/10 bg-paper/40' : 'border-ink/10'}`}>
                   <label className="flex items-start gap-3 cursor-pointer">
-                    <input type="checkbox" checked={feito} onChange={() => marcarConcluido(item.id, feito)} className="mt-1 w-4 h-4" />
-                    <div>
+                    <input type="checkbox" checked={feito} onChange={() => marcarConcluidoManual(item.id, feito)} className="mt-1 w-4 h-4 shrink-0" />
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.materias?.cor || '#1B2A4A' }} />
                         <p className={`text-sm font-medium ${feito ? 'text-ink/40 line-through' : 'text-ink'}`}>
@@ -204,9 +257,35 @@ export default function DashboardAluno() {
                         </p>
                       </div>
                       {item.descricao && <p className="text-ink/50 text-sm mt-0.5 ml-4">{item.descricao}</p>}
-                      {qtd > 0 && <p className="text-ink/40 text-xs mt-0.5 ml-4">{qtd} questão(ões) preparada(s) pelo professor</p>}
                     </div>
                   </label>
+                </div>
+              )
+            })}
+
+            {itensComQuestoes.map((item) => {
+              const total = questaoIdsPorItem[item.id]?.length || 0
+              const feitas = respondidasPorItem[item.id]?.size || 0
+              const completo = total > 0 && feitas === total
+              return (
+                <div key={item.id} className={`border rounded-lg px-4 py-3 ${completo ? 'border-acerto/30 bg-acerto/5' : 'border-ink/10'}`}>
+                  <div className="flex items-start gap-3">
+                    <span className={`mt-0.5 w-4 h-4 rounded-full shrink-0 flex items-center justify-center text-[10px] ${completo ? 'bg-acerto text-white' : 'border border-ink/30'}`}>
+                      {completo ? '✓' : ''}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.materias?.cor || '#1B2A4A' }} />
+                        <p className={`text-sm font-medium ${completo ? 'text-ink/50' : 'text-ink'}`}>
+                          {item.materias?.nome || 'Estudo'}{item.topicos?.nome ? ` — ${item.topicos.nome}` : ''}
+                        </p>
+                      </div>
+                      {item.descricao && <p className="text-ink/50 text-sm mt-0.5 ml-4">{item.descricao}</p>}
+                      <p className="text-ink/40 text-xs mt-0.5 ml-4">
+                        {completo ? 'Concluído — todas as questões respondidas' : `${feitas}/${total} questões respondidas`}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )
             })}
@@ -222,7 +301,13 @@ export default function DashboardAluno() {
                   </p>
                   <div className="space-y-3">
                     {(questoesPorItem[item.id] || []).map((q) => (
-                      <QuestionCard key={q.id} questao={q} turmaId={turmaId} onRespondida={carregarIndicadores} textoBase={q.grupos_questoes?.texto_base} />
+                      <QuestionCard
+                        key={q.id}
+                        questao={q}
+                        turmaId={turmaId}
+                        onRespondida={() => handleQuestaoRespondida(item, q.id)}
+                        textoBase={q.grupos_questoes?.texto_base}
+                      />
                     ))}
                   </div>
                 </div>
@@ -251,11 +336,14 @@ export default function DashboardAluno() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <IndicadorCard label="Questões respondidas" value={indicadores.questoesRespondidas} />
-        <IndicadorCard label="Taxa de acertos" value={`${indicadores.taxaAcerto}%`} cor={indicadores.taxaAcerto >= 70 ? 'text-acerto' : indicadores.taxaAcerto >= 50 ? 'text-gold' : 'text-erro'} />
-        <IndicadorCard label="Dias consecutivos" value={indicadores.diasConsecutivos} cor="text-gold" />
-        <Link to="/aluno/desempenho" className="bg-white border border-ink/10 rounded-lg p-4 shadow-sm hover:border-gold/40 transition-colors">
-          <p className="text-ink/60 text-xs mb-1">Questões p/ revisão</p>
+        <IndicadorCard icon={ListChecks} label="Questões respondidas" value={indicadores.questoesRespondidas} />
+        <IndicadorCard icon={Target} label="Taxa de acertos" value={`${indicadores.taxaAcerto}%`} cor={indicadores.taxaAcerto >= 70 ? 'text-acerto' : indicadores.taxaAcerto >= 50 ? 'text-gold' : 'text-erro'} />
+        <IndicadorCard icon={Flame} label="Dias consecutivos" value={indicadores.diasConsecutivos} cor="text-gold" />
+        <Link to="/aluno/desempenho" className="bg-white border border-ink/10 rounded-lg p-4 shadow-sm hover:border-gold/40 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-ink/60 text-xs">Questões p/ revisão</p>
+            <AlertTriangle className={`w-4 h-4 ${indicadores.questoesParaRevisao > 0 ? 'text-erro' : 'text-ink/20'}`} />
+          </div>
           <p className={`font-serif text-2xl ${indicadores.questoesParaRevisao > 0 ? 'text-erro' : 'text-ink'}`}>{indicadores.questoesParaRevisao}</p>
         </Link>
       </div>
@@ -274,10 +362,13 @@ export default function DashboardAluno() {
   )
 }
 
-function IndicadorCard({ label, value, cor }: { label: string; value: number | string; cor?: string }) {
+function IndicadorCard({ label, value, cor, icon: Icon }: { label: string; value: number | string; cor?: string; icon: React.ComponentType<{ className?: string }> }) {
   return (
-    <div className="bg-white border border-ink/10 rounded-lg p-4 shadow-sm">
-      <p className="text-ink/60 text-xs mb-1">{label}</p>
+    <div className="bg-white border border-ink/10 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-ink/60 text-xs">{label}</p>
+        <Icon className="w-4 h-4 text-ink/25" />
+      </div>
       <p className={`font-serif text-2xl ${cor || 'text-ink'}`}>{value}</p>
     </div>
   )
