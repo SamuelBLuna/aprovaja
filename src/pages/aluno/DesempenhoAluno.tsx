@@ -8,6 +8,7 @@ import { usePossuiTurma } from '../../lib/usePossuiTurma'
 type Periodo = 'hoje' | 'semana' | 'mes' | 'personalizado'
 
 interface DesempenhoMateria { nome: string; acertos: number; total: number; pct: number }
+interface DesempenhoTopico { nome: string; acertos: number; total: number; pct: number }
 interface PontoDia { dia: string; pct: number; total: number }
 
 const CORES = { boa: '#2F6B4F', media: '#C9973E', ruim: '#B23A34' }
@@ -38,6 +39,7 @@ export default function DesempenhoAluno() {
   const [respostas, setRespostas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [materiaSelecionada, setMateriaSelecionada] = useState<string | null>(null)
 
   const { inicio, fim } = useMemo(() => {
     const hoje = isoHoje()
@@ -53,7 +55,7 @@ export default function DesempenhoAluno() {
     setErro(null)
     supabase
       .from('respostas')
-      .select('correta, created_at, questoes(materia_id, materias(nome))')
+      .select('correta, created_at, questoes(materia_id, topico_id, materias(nome), topicos(nome))')
       .eq('aluno_id', profile.id)
       .gte('created_at', inicio + 'T00:00:00')
       .lte('created_at', fim + 'T23:59:59')
@@ -87,6 +89,22 @@ export default function DesempenhoAluno() {
   const desempenhoMaterias = Array.from(porMateria.values())
     .map((m) => ({ ...m, pct: Math.round((m.acertos / m.total) * 100) }))
     .sort((a, b) => a.pct - b.pct)
+
+  // desempenho por tópico, só dentro da matéria selecionada (drill-down)
+  const desempenhoTopicos: DesempenhoTopico[] = []
+  if (materiaSelecionada) {
+    const porTopico = new Map<string, DesempenhoTopico>()
+    for (const r of respostas) {
+      const nomeMateria = r.questoes?.materias?.nome || 'Sem matéria'
+      if (nomeMateria !== materiaSelecionada) continue
+      const nomeTopico = r.questoes?.topicos?.nome || 'Sem tópico'
+      if (!porTopico.has(nomeTopico)) porTopico.set(nomeTopico, { nome: nomeTopico, acertos: 0, total: 0, pct: 0 })
+      const item = porTopico.get(nomeTopico)!
+      item.total += 1
+      if (r.correta) item.acertos += 1
+    }
+    desempenhoTopicos.push(...Array.from(porTopico.values()).map((t) => ({ ...t, pct: Math.round((t.acertos / t.total) * 100) })).sort((a, b) => a.pct - b.pct))
+  }
 
   // evolução diária dentro do período
   const dias: PontoDia[] = []
@@ -123,9 +141,9 @@ export default function DesempenhoAluno() {
         ))}
         {periodo === 'personalizado' && (
           <div className="flex items-center gap-2 ml-2">
-            <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="border border-ink/20 rounded px-2 py-1.5 text-sm" />
+            <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="border border-ink/15 rounded-lg px-2 py-1.5 text-sm" />
             <span className="text-ink/40 text-sm">até</span>
-            <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="border border-ink/20 rounded px-2 py-1.5 text-sm" />
+            <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="border border-ink/15 rounded-lg px-2 py-1.5 text-sm" />
           </div>
         )}
       </div>
@@ -151,19 +169,51 @@ export default function DesempenhoAluno() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white border border-ink/10 rounded-lg p-6 shadow-sm">
-              <h2 className="font-serif text-lg text-ink mb-4">Por matéria</h2>
-              <ResponsiveContainer width="100%" height={Math.max(200, desempenhoMaterias.length * 42)}>
-                <BarChart data={desempenhoMaterias} layout="vertical" margin={{ left: 8, right: 24 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1B2A4A0D" horizontal={false} />
-                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: '#1B2A4A99' }} unit="%" />
-                  <YAxis type="category" dataKey="nome" width={120} tick={{ fontSize: 12, fill: '#1B2A4A' }} />
-                  <Tooltip formatter={(value: any, _n, props: any) => [`${value}% (${props.payload.acertos}/${props.payload.total})`, 'Acerto']}
-                    contentStyle={{ borderRadius: 8, border: '1px solid #1B2A4A1A', fontSize: 13 }} />
-                  <Bar dataKey="pct" radius={[0, 6, 6, 0]} barSize={20}>
-                    {desempenhoMaterias.map((d) => <Cell key={d.nome} fill={corPorPct(d.pct)} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              {materiaSelecionada ? (
+                <>
+                  <div className="flex items-center gap-2 mb-1">
+                    <button onClick={() => setMateriaSelecionada(null)} className="text-gold text-xs hover:underline">← Voltar</button>
+                  </div>
+                  <h2 className="font-serif text-lg text-ink mb-1">{materiaSelecionada} — por tópico</h2>
+                  <p className="text-xs text-ink/40 mb-4">Tópicos com menor aproveitamento aparecem primeiro.</p>
+                  {desempenhoTopicos.length === 0 ? (
+                    <p className="text-ink/50 text-sm py-8 text-center">Nenhum tópico registrado nessas questões.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={Math.max(200, desempenhoTopicos.length * 42)}>
+                      <BarChart data={desempenhoTopicos} layout="vertical" margin={{ left: 8, right: 24 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1B2A4A0D" horizontal={false} />
+                        <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: '#1B2A4A99' }} unit="%" />
+                        <YAxis type="category" dataKey="nome" width={120} tick={{ fontSize: 12, fill: '#1B2A4A' }} />
+                        <Tooltip formatter={(value: any, _n, props: any) => [`${value}% (${props.payload.acertos}/${props.payload.total})`, 'Acerto']}
+                          contentStyle={{ borderRadius: 8, border: '1px solid #1B2A4A1A', fontSize: 13 }} />
+                        <Bar dataKey="pct" radius={[0, 6, 6, 0]} barSize={20}>
+                          {desempenhoTopicos.map((t) => <Cell key={t.nome} fill={corPorPct(t.pct)} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h2 className="font-serif text-lg text-ink mb-1">Por matéria</h2>
+                  <p className="text-xs text-ink/40 mb-4">Clique numa barra pra ver o desempenho por tópico dentro dela.</p>
+                  <ResponsiveContainer width="100%" height={Math.max(200, desempenhoMaterias.length * 42)}>
+                    <BarChart data={desempenhoMaterias} layout="vertical" margin={{ left: 8, right: 24 }} onClick={(e: any) => {
+                      const nome = e?.activePayload?.[0]?.payload?.nome
+                      if (nome) setMateriaSelecionada(nome)
+                    }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1B2A4A0D" horizontal={false} />
+                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: '#1B2A4A99' }} unit="%" />
+                      <YAxis type="category" dataKey="nome" width={120} tick={{ fontSize: 12, fill: '#1B2A4A' }} />
+                      <Tooltip formatter={(value: any, _n, props: any) => [`${value}% (${props.payload.acertos}/${props.payload.total})`, 'Acerto']}
+                        contentStyle={{ borderRadius: 8, border: '1px solid #1B2A4A1A', fontSize: 13 }} />
+                      <Bar dataKey="pct" radius={[0, 6, 6, 0]} barSize={20} cursor="pointer">
+                        {desempenhoMaterias.map((d) => <Cell key={d.nome} fill={corPorPct(d.pct)} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </>
+              )}
             </div>
 
             <div className="bg-white border border-ink/10 rounded-lg p-6 shadow-sm">

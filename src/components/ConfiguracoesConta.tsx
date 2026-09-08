@@ -66,23 +66,23 @@ export default function ConfiguracoesConta() {
 
   return (
     <div className="space-y-6 max-w-lg">
-      <form onSubmit={salvarNome} className="bg-white border border-ink/10 rounded p-5 space-y-3">
+      <form onSubmit={salvarNome} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 space-y-3">
         <h2 className="font-serif text-lg text-ink">Nome</h2>
-        <input value={nome} onChange={(e) => setNome(e.target.value)} className="w-full border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+        <input value={nome} onChange={(e) => setNome(e.target.value)} className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
         {msgNome && <p className="text-sm text-acerto">{msgNome}</p>}
-        <button disabled={salvandoNome} className="bg-ink text-white px-4 py-2 rounded text-sm hover:bg-ink-light disabled:opacity-50">
+        <button disabled={salvandoNome} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm hover:bg-ink-light transition-colors shadow-soft disabled:opacity-50">
           {salvandoNome ? 'Salvando…' : 'Salvar'}
         </button>
       </form>
 
-      <form onSubmit={salvarSenha} className="bg-white border border-ink/10 rounded p-5 space-y-3">
+      <form onSubmit={salvarSenha} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 space-y-3">
         <h2 className="font-serif text-lg text-ink">Trocar senha</h2>
         <input type="password" value={senhaAtual} onChange={(e) => setSenhaAtual(e.target.value)} placeholder="Senha atual"
-          className="w-full border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+          className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
         <input type="password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} placeholder="Nova senha" minLength={6}
-          className="w-full border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+          className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
         {msgSenha && <p className={`text-sm ${erroSenha ? 'text-erro' : 'text-acerto'}`}>{msgSenha}</p>}
-        <button disabled={salvandoSenha} className="bg-ink text-white px-4 py-2 rounded text-sm hover:bg-ink-light disabled:opacity-50">
+        <button disabled={salvandoSenha} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm hover:bg-ink-light transition-colors shadow-soft disabled:opacity-50">
           {salvandoSenha ? 'Salvando…' : 'Atualizar senha'}
         </button>
       </form>

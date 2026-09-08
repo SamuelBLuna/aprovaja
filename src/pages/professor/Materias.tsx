@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Materia, Topico } from '../../lib/types'
+import PageHeader from '../../components/ui/PageHeader'
 
 export default function Materias() {
   const { profile } = useAuth()
@@ -89,17 +90,16 @@ export default function Materias() {
 
   return (
     <div>
-      <h1 className="font-serif text-2xl text-ink mb-1">Matérias</h1>
-      <p className="text-ink/60 text-sm mb-6">Organize o conteúdo em matérias e tópicos. Ex: CPC → Petição Inicial (arts. 319 a 321).</p>
+      <PageHeader title="Matérias" subtitle="Organize o conteúdo em matérias e tópicos. Ex: CPC → Petição Inicial (arts. 319 a 321)." />
 
       <form onSubmit={criarMateria} className="flex flex-col sm:flex-row gap-2 mb-6">
         <input
           value={novaMateria}
           onChange={(e) => setNovaMateria(e.target.value)}
           placeholder="Nome da nova matéria (ex: Direito Penal)"
-          className="flex-1 border border-ink/20 rounded px-3 py-2 text-sm bg-white focus:border-gold"
+          className="flex-1 border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white focus:border-gold"
         />
-        <button className="bg-ink text-white px-4 py-2 rounded text-sm font-medium hover:bg-ink-light">Adicionar</button>
+        <button className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft">Adicionar</button>
       </form>
 
       <div className="space-y-3">
@@ -108,12 +108,12 @@ export default function Materias() {
           const topicos = topicosPorMateria[m.id] || []
           const editandoEssaMateria = editandoMateriaId === m.id
           return (
-            <div key={m.id} className="bg-white border border-ink/10 rounded overflow-hidden">
+            <div key={m.id} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 gap-2">
                 {editandoEssaMateria ? (
                   <div className="flex items-center gap-2 flex-1">
                     <input value={editMateriaNome} onChange={(e) => setEditMateriaNome(e.target.value)} autoFocus
-                      className="flex-1 border border-ink/20 rounded px-2 py-1 text-sm" />
+                      className="flex-1 border border-ink/15 rounded-lg px-2 py-1 text-sm" />
                     <button onClick={() => salvarEdicaoMateria(m.id)} className="text-acerto text-xs hover:underline">Salvar</button>
                     <button onClick={() => setEditandoMateriaId(null)} className="text-ink/50 text-xs hover:underline">Cancelar</button>
                   </div>
@@ -143,9 +143,9 @@ export default function Materias() {
                           {editandoEsseTopico ? (
                             <div className="flex flex-col sm:flex-row gap-2">
                               <input value={editTopicoNome} onChange={(e) => setEditTopicoNome(e.target.value)} autoFocus
-                                className="flex-1 border border-ink/20 rounded px-2 py-1 text-sm" placeholder="Nome" />
+                                className="flex-1 border border-ink/15 rounded-lg px-2 py-1 text-sm" placeholder="Nome" />
                               <input value={editTopicoDescricao} onChange={(e) => setEditTopicoDescricao(e.target.value)}
-                                className="flex-1 border border-ink/20 rounded px-2 py-1 text-sm" placeholder="Detalhe" />
+                                className="flex-1 border border-ink/15 rounded-lg px-2 py-1 text-sm" placeholder="Detalhe" />
                               <div className="flex gap-2 shrink-0">
                                 <button onClick={() => salvarEdicaoTopico(m.id, t.id)} className="text-acerto text-xs hover:underline">Salvar</button>
                                 <button onClick={() => setEditandoTopicoId(null)} className="text-ink/50 text-xs hover:underline">Cancelar</button>
@@ -170,13 +170,13 @@ export default function Materias() {
                       value={novoTopico[m.id] || ''}
                       onChange={(e) => setNovoTopico((prev) => ({ ...prev, [m.id]: e.target.value }))}
                       placeholder="Nome do tópico (ex: Petição Inicial)"
-                      className="flex-1 border border-ink/20 rounded px-3 py-1.5 text-sm bg-white focus:border-gold"
+                      className="flex-1 border border-ink/15 rounded-lg px-3 py-1.5 text-sm bg-white focus:border-gold"
                     />
                     <input
                       value={novaDescricao[m.id] || ''}
                       onChange={(e) => setNovaDescricao((prev) => ({ ...prev, [m.id]: e.target.value }))}
                       placeholder="Detalhe (ex: arts. 319 a 321)"
-                      className="sm:w-56 border border-ink/20 rounded px-3 py-1.5 text-sm bg-white focus:border-gold"
+                      className="sm:w-56 border border-ink/15 rounded-lg px-3 py-1.5 text-sm bg-white focus:border-gold"
                     />
                     <button className="bg-ink text-white px-3 py-1.5 rounded text-sm hover:bg-ink-light">+</button>
                   </form>

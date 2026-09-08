@@ -103,6 +103,7 @@ export interface SimuladoTentativa {
   iniciado_em: string
   finalizado_em: string | null
   tempo_total_segundos: number | null
+  tempo_usado_segundos: number
   acertos: number
   erros: number
 }

@@ -223,6 +223,7 @@ create table public.simulado_tentativas (
   iniciado_em timestamptz not null default now(),
   finalizado_em timestamptz,
   tempo_total_segundos int,
+  tempo_usado_segundos int not null default 0, -- só o tempo ATIVO na tela (pausa quando o aluno sai)
   acertos int not null default 0,
   erros int not null default 0
 );
@@ -549,6 +550,15 @@ create policy "notif_select" on public.notificacoes for select using (aluno_id =
 create policy "notif_update" on public.notificacoes for update using (aluno_id = auth.uid());
 -- sem policy de insert para o próprio usuário: só funções do servidor
 -- (security definer, como encerrar_turma) podem criar notificações.
+
+-- hora atual do servidor — usada pelo cronômetro do simulado, pra não
+-- depender do relógio (possivelmente dessincronizado) do computador do aluno
+create or replace function public.hora_atual()
+returns timestamptz language sql stable as $$
+  select now();
+$$;
+
+grant execute on function public.hora_atual() to authenticated, anon;
 
 -- =====================================================================
 -- FIM DO SCHEMA

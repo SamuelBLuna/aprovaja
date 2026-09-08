@@ -16,7 +16,7 @@ export default function RecuperarConta() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-paper px-4">
-      <div className="max-w-sm w-full bg-white border border-ink/10 rounded p-6 text-center">
+      <div className="max-w-sm w-full bg-white border border-ink/[0.07] rounded-xl shadow-soft p-6 text-center">
         <h1 className="font-serif text-xl text-ink mb-2">Sua conta está marcada para exclusão</h1>
         <p className="text-ink/60 text-sm mb-6">Você pode recuperar o acesso agora, ou continuar e a conta permanecerá desativada.</p>
         <button onClick={recuperar} className="w-full bg-ink text-white py-2 rounded text-sm font-medium hover:bg-ink-light mb-2">

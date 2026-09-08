@@ -72,7 +72,7 @@ export default function QuestaoForm({ initial, onSubmit, onCancel, submitLabel, 
       </div>
 
       <textarea required value={enunciado} onChange={(e) => setEnunciado(e.target.value)} rows={3} placeholder="Enunciado da questão"
-        className="w-full border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+        className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
 
       {tipo === 'multipla_escolha' ? (
         <div className="space-y-2">
@@ -82,7 +82,7 @@ export default function QuestaoForm({ initial, onSubmit, onCancel, submitLabel, 
               <span className="w-5 text-sm text-ink/60">{alt.id}</span>
               <input value={alt.texto} onChange={(e) => updateAlternativaTexto(alt.id, e.target.value)}
                 placeholder={`Alternativa ${alt.id}`}
-                className="flex-1 border border-ink/20 rounded px-3 py-1.5 text-sm focus:border-gold" />
+                className="flex-1 border border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-gold" />
             </div>
           ))}
           {alternativas.length < 5 && (
@@ -98,11 +98,11 @@ export default function QuestaoForm({ initial, onSubmit, onCancel, submitLabel, 
       )}
 
       <textarea value={explicacao} onChange={(e) => setExplicacao(e.target.value)} rows={2} placeholder="Explicação da resposta (opcional, aparece depois que o aluno responde)"
-        className="w-full border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+        className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
 
       <div className="flex items-center gap-2">
         <label className="text-sm text-ink/70">Dificuldade:</label>
-        <select value={dificuldade} onChange={(e) => setDificuldade(Number(e.target.value) as 1 | 2 | 3)} className="border border-ink/20 rounded px-2 py-1 text-sm bg-white">
+        <select value={dificuldade} onChange={(e) => setDificuldade(Number(e.target.value) as 1 | 2 | 3)} className="border border-ink/15 rounded-lg px-2 py-1 text-sm bg-white">
           <option value={1}>Fácil</option>
           <option value={2}>Média</option>
           <option value={3}>Difícil</option>
@@ -110,7 +110,7 @@ export default function QuestaoForm({ initial, onSubmit, onCancel, submitLabel, 
       </div>
 
       <div className="flex gap-2">
-        <button disabled={salvando} className="bg-ink text-white px-4 py-2 rounded text-sm font-medium hover:bg-ink-light disabled:opacity-50">
+        <button disabled={salvando} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft disabled:opacity-50">
           {salvando ? 'Salvando…' : (submitLabel || 'Salvar questão')}
         </button>
         {onCancel && <button type="button" onClick={onCancel} className="text-ink/60 text-sm hover:underline">Cancelar</button>}

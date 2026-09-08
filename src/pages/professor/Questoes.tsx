@@ -22,6 +22,7 @@ export default function Questoes() {
   const [somenteRevisao, setSomenteRevisao] = useState(searchParams.get('revisao') === '1')
   const [grupoExpandido, setGrupoExpandido] = useState<string | null>(null)
   const [editandoAvulsaId, setEditandoAvulsaId] = useState<string | null>(null)
+  const [ultimaSalva, setUltimaSalva] = useState<number | null>(null)
   const [editandoDoGrupo, setEditandoDoGrupo] = useState<{ grupoId: string; questaoId: string } | null>(null)
   const [editandoInfoGrupoId, setEditandoInfoGrupoId] = useState<string | null>(null)
 
@@ -105,13 +106,18 @@ export default function Questoes() {
       const { error } = await supabase.from('questoes').insert({
         ...values, professor_id: profile.id, materia_id: materiaId, topico_id: topicoId || null, grupo_id: null,
       })
-      if (!error) { setModo('lista'); carregarAvulsas(filtroMateria, somenteRevisao) }
-      else alert('Erro ao salvar: ' + error.message)
+      if (!error) {
+        // fica na tela, com matéria/tópico mantidos, pra cadastrar a próxima em sequência
+        carregarAvulsas(filtroMateria, somenteRevisao)
+        setUltimaSalva(Date.now())
+      } else {
+        alert('Erro ao salvar: ' + error.message)
+      }
     }
   }
 
   function iniciarNovaAvulsa() {
-    setEditandoAvulsaId(null); setMateriaId(''); setTopicoId(''); setModo('nova_avulsa')
+    setEditandoAvulsaId(null); setMateriaId(''); setTopicoId(''); setUltimaSalva(null); setModo('nova_avulsa')
   }
 
   function iniciarEdicaoAvulsa(q: Questao) {
@@ -200,13 +206,13 @@ export default function Questoes() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-        <h1 className="font-serif text-2xl text-ink">Questões</h1>
+        <h1 className="font-serif text-[26px] text-ink">Questões</h1>
         {modo === 'lista' && (
           <div className="flex gap-2">
-            <button onClick={() => setModo('novo_grupo')} className="border border-ink/20 text-ink px-3 py-2 rounded text-sm hover:bg-ink/5">
+            <button onClick={() => setModo('novo_grupo')} className="border border-ink/15 text-ink px-3 py-2 rounded-lg text-sm hover:bg-ink/5 transition-colors bg-white">
               + Grupo de questões (texto-base)
             </button>
-            <button onClick={iniciarNovaAvulsa} className="bg-ink text-white px-4 py-2 rounded text-sm font-medium hover:bg-ink-light">
+            <button onClick={iniciarNovaAvulsa} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft">
               + Questão avulsa
             </button>
           </div>
@@ -214,46 +220,50 @@ export default function Questoes() {
       </div>
 
       {modo === 'nova_avulsa' && (
-        <div className="bg-white border border-ink/10 rounded p-5 mb-6">
+        <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 mb-6">
           <p className="text-sm text-ink/60 mb-4">{editandoAvulsaId ? 'Editando questão avulsa' : 'Nova questão avulsa — sem vínculo com nenhum grupo.'}</p>
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <select required value={materiaId} onChange={(e) => setMateriaId(e.target.value)} className="border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+            <select required value={materiaId} onChange={(e) => setMateriaId(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="">Matéria *</option>
               {materias.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
             </select>
-            <select value={topicoId} onChange={(e) => setTopicoId(e.target.value)} disabled={!materiaId} className="border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+            <select value={topicoId} onChange={(e) => setTopicoId(e.target.value)} disabled={!materiaId} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="">Tópico (opcional)</option>
               {(topicosPorMateria[materiaId] || []).map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
           </div>
+          {!editandoAvulsaId && ultimaSalva && (
+            <p className="text-acerto text-sm mb-3">✓ Questão salva! Matéria e tópico continuam selecionados — pode cadastrar a próxima.</p>
+          )}
           <QuestaoForm
+            key={editandoAvulsaId ? `edit-${editandoAvulsaId}` : `nova-${ultimaSalva}`}
             initial={editandoAvulsaId ? avulsas.find((a) => a.id === editandoAvulsaId) || undefined : undefined}
             onSubmit={salvarAvulsa}
-            onCancel={() => { setModo('lista'); setEditandoAvulsaId(null) }}
-            submitLabel={editandoAvulsaId ? 'Salvar alterações' : 'Salvar questão'}
+            onCancel={() => { setModo('lista'); setEditandoAvulsaId(null); setUltimaSalva(null) }}
+            submitLabel={editandoAvulsaId ? 'Salvar alterações' : 'Salvar e adicionar próxima'}
           />
         </div>
       )}
 
       {modo === 'novo_grupo' && (
-        <form onSubmit={criarGrupo} className="bg-white border border-ink/10 rounded p-5 mb-6 space-y-3">
+        <form onSubmit={criarGrupo} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 mb-6 space-y-3">
           <p className="text-sm text-ink/60">Use um grupo quando várias perguntas dependem do mesmo texto — ex: interpretação de texto ou estudo de caso. Depois de criar, você adiciona as perguntas uma a uma.</p>
           <input required value={grupoTitulo} onChange={(e) => setGrupoTitulo(e.target.value)} placeholder="Título do grupo (ex: Texto 1 — Interpretação)"
-            className="w-full border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+            className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
           <div className="grid grid-cols-2 gap-3">
-            <select required value={grupoMateriaId} onChange={(e) => setGrupoMateriaId(e.target.value)} className="border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+            <select required value={grupoMateriaId} onChange={(e) => setGrupoMateriaId(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="">Matéria *</option>
               {materias.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
             </select>
-            <select value={grupoTopicoId} onChange={(e) => setGrupoTopicoId(e.target.value)} disabled={!grupoMateriaId} className="border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+            <select value={grupoTopicoId} onChange={(e) => setGrupoTopicoId(e.target.value)} disabled={!grupoMateriaId} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="">Tópico (opcional, vale para todas as perguntas do grupo)</option>
               {(topicosPorMateria[grupoMateriaId] || []).map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
           </div>
           <textarea required value={grupoTexto} onChange={(e) => setGrupoTexto(e.target.value)} rows={6} placeholder="Cole aqui o texto-base ou o enunciado do estudo de caso"
-            className="w-full border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+            className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
           <div className="flex gap-2">
-            <button className="bg-ink text-white px-4 py-2 rounded text-sm hover:bg-ink-light">Criar grupo e adicionar perguntas</button>
+            <button className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm hover:bg-ink-light transition-colors shadow-soft">Criar grupo e adicionar perguntas</button>
             <button type="button" onClick={() => setModo('lista')} className="text-ink/60 text-sm hover:underline">Cancelar</button>
           </div>
         </form>
@@ -269,7 +279,7 @@ export default function Questoes() {
               const perguntas = questoesPorGrupo[g.id] || []
               const editandoInfo = editandoInfoGrupoId === g.id
               return (
-                <div key={g.id} className="bg-white border border-ink/10 rounded overflow-hidden">
+                <div key={g.id} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-3 cursor-pointer" onClick={() => abrirGrupo(g.id)}>
                     <div>
                       <p className="text-ink font-medium text-sm">{g.titulo}</p>
@@ -286,26 +296,26 @@ export default function Questoes() {
                       {editandoInfo ? (
                         <div className="bg-white border border-gold/40 rounded p-4 space-y-3">
                           <input value={editGrupoTitulo} onChange={(e) => setEditGrupoTitulo(e.target.value)} placeholder="Título do grupo"
-                            className="w-full border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+                            className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
                           <div className="grid grid-cols-2 gap-3">
-                            <select value={editGrupoMateriaId} onChange={(e) => setEditGrupoMateriaId(e.target.value)} className="border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+                            <select value={editGrupoMateriaId} onChange={(e) => setEditGrupoMateriaId(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
                               <option value="">Matéria *</option>
                               {materias.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
                             </select>
-                            <select value={editGrupoTopicoId} onChange={(e) => setEditGrupoTopicoId(e.target.value)} disabled={!editGrupoMateriaId} className="border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+                            <select value={editGrupoTopicoId} onChange={(e) => setEditGrupoTopicoId(e.target.value)} disabled={!editGrupoMateriaId} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
                               <option value="">Tópico (opcional)</option>
                               {(topicosPorMateria[editGrupoMateriaId] || []).map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
                             </select>
                           </div>
                           <textarea value={editGrupoTexto} onChange={(e) => setEditGrupoTexto(e.target.value)} rows={5}
-                            className="w-full border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+                            className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
                           <div className="flex gap-2">
-                            <button onClick={() => salvarEdicaoInfoGrupo(g.id)} className="bg-ink text-white px-4 py-2 rounded text-sm hover:bg-ink-light">Salvar alterações</button>
+                            <button onClick={() => salvarEdicaoInfoGrupo(g.id)} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm hover:bg-ink-light transition-colors shadow-soft">Salvar alterações</button>
                             <button onClick={() => setEditandoInfoGrupoId(null)} className="text-ink/60 text-sm hover:underline">Cancelar</button>
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-white border border-ink/10 rounded p-3">
+                        <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-3">
                           <p className="text-sm text-ink/70 whitespace-pre-wrap mb-2">{g.texto_base}</p>
                           <button onClick={() => iniciarEdicaoInfoGrupo(g)} className="text-gold text-xs hover:underline">Editar título / matéria / tópico / texto</button>
                         </div>
@@ -322,7 +332,7 @@ export default function Questoes() {
                             />
                           </div>
                         ) : (
-                          <div key={q.id} className="bg-white border border-ink/10 rounded px-4 py-3 flex justify-between items-start">
+                          <div key={q.id} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft px-4 py-3 flex justify-between items-start">
                             <div>
                               <div className="flex flex-wrap items-center gap-2 mb-1 text-xs">
                                 <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{q.tipo === 'multipla_escolha' ? 'Múltipla escolha' : 'V ou F'}</span>
@@ -357,14 +367,14 @@ export default function Questoes() {
               <input type="checkbox" checked={somenteRevisao} onChange={(e) => setSomenteRevisao(e.target.checked)} />
               Só as que precisam de revisão
             </label>
-            <select value={filtroMateria} onChange={(e) => setFiltroMateria(e.target.value)} className="border border-ink/20 rounded px-3 py-1.5 text-sm bg-white">
+            <select value={filtroMateria} onChange={(e) => setFiltroMateria(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-1.5 text-sm bg-white">
               <option value="">Todas as matérias</option>
               {materias.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
             </select>
           </div>
           <div className="space-y-2">
             {avulsas.map((q) => (
-              <div key={q.id} className="bg-white border border-ink/10 rounded px-4 py-3 flex items-start justify-between gap-4">
+              <div key={q.id} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft px-4 py-3 flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-1 text-xs">
                     <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{q.materias?.nome}</span>

@@ -91,8 +91,8 @@ export default function GerenciarTurma({ turma, onFechar, onAtualizada, onExclui
         <label className="block text-xs text-ink/60 mb-1">Nome da turma</label>
         <div className="flex gap-2">
           <input value={nome} onChange={(e) => setNome(e.target.value)} onBlur={salvarNome}
-            className="flex-1 border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
-          <button onClick={salvarNome} disabled={salvandoNome} className="bg-ink text-white px-4 py-2 rounded text-sm hover:bg-ink-light disabled:opacity-50">
+            className="flex-1 border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
+          <button onClick={salvarNome} disabled={salvandoNome} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm hover:bg-ink-light transition-colors shadow-soft disabled:opacity-50">
             {salvandoNome ? 'Salvando…' : 'Salvar'}
           </button>
         </div>

@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Users, ListChecks, Target, AlertTriangle, LucideIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { Turma } from '../../lib/types'
+import PageHeader from '../../components/ui/PageHeader'
 
 interface DesempenhoMateria {
   materiaId: string
@@ -89,7 +90,6 @@ export default function DashboardProfessor() {
     setDesempenho(listaMaterias)
     setTaxaGeral(respostas && respostas.length > 0 ? Math.round((totalAcertos / respostas.length) * 100) : 0)
 
-    // evolução das últimas 8 semanas
     const hoje = new Date()
     const semanas: PontoSemana[] = []
     for (let i = 7; i >= 0; i--) {
@@ -112,48 +112,54 @@ export default function DashboardProfessor() {
   if (turmas.length === 0 && !loading) {
     return (
       <div>
-        <h1 className="font-serif text-2xl text-ink mb-2">Painel</h1>
-        <p className="text-ink/60">
-          Você ainda não tem nenhuma turma. Crie uma na página de Cronograma para começar a acompanhar seus alunos.
-        </p>
+        <PageHeader title="Painel" />
+        <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-10 text-center">
+          <p className="text-4xl mb-3">📚</p>
+          <p className="text-ink/60 text-sm">Você ainda não tem nenhuma turma. Crie uma na página de Cronograma para começar a acompanhar seus alunos.</p>
+        </div>
       </div>
     )
   }
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-        <h1 className="font-serif text-2xl text-ink">Painel</h1>
-        <select
-          value={turmaId}
-          onChange={(e) => setTurmaId(e.target.value)}
-          className="border border-ink/20 rounded px-3 py-1.5 text-sm bg-white"
-        >
-          {turmas.map((t) => (
-            <option key={t.id} value={t.id}>{t.nome}{t.status === 'encerrada' ? ' (encerrada)' : ''}</option>
-          ))}
-        </select>
-      </div>
+      <PageHeader
+        title="Painel"
+        subtitle="O retrato do desempenho da sua turma, agora."
+        actions={
+          <select
+            value={turmaId}
+            onChange={(e) => setTurmaId(e.target.value)}
+            className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white shadow-soft"
+          >
+            {turmas.map((t) => (
+              <option key={t.id} value={t.id}>{t.nome}{t.status === 'encerrada' ? ' (encerrada)' : ''}</option>
+            ))}
+          </select>
+        }
+      />
 
       {loading ? (
         <p className="text-ink/50">Carregando…</p>
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-            <MetricCard icon={Users} label="Alunos na turma" value={totalAlunos} />
-            <MetricCard icon={ListChecks} label="Questões respondidas" value={totalRespondidas} />
-            <MetricCard icon={Target} label="Taxa de acerto geral" value={`${taxaGeral}%`} accent={taxaGeral >= 70} />
-            <Link to="/professor/questoes?revisao=1" className="bg-white border border-ink/10 rounded-lg p-5 shadow-sm hover:border-gold/40 hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-ink/60 text-sm">Questões p/ revisão</p>
-                <AlertTriangle className={`w-4 h-4 ${questoesRevisao > 0 ? 'text-erro' : 'text-ink/20'}`} />
+            <MetricCard icon={Users} label="Alunos na turma" value={totalAlunos} cor="ink" />
+            <MetricCard icon={ListChecks} label="Questões respondidas" value={totalRespondidas} cor="gold" />
+            <MetricCard icon={Target} label="Taxa de acerto geral" value={`${taxaGeral}%`} cor={taxaGeral >= 70 ? 'acerto' : 'ink'} />
+            <Link to="/professor/questoes?revisao=1" className="group bg-white border border-ink/[0.07] rounded-xl shadow-soft hover:shadow-card hover:border-gold/30 transition-all p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${questoesRevisao > 0 ? 'bg-erro/10' : 'bg-ink/5'}`}>
+                  <AlertTriangle className={`w-4 h-4 ${questoesRevisao > 0 ? 'text-erro' : 'text-ink/30'}`} />
+                </div>
               </div>
-              <p className={`font-serif text-3xl ${questoesRevisao > 0 ? 'text-erro' : 'text-ink'}`}>{questoesRevisao}</p>
+              <p className="text-ink/50 text-xs mb-1">Questões p/ revisão</p>
+              <p className={`font-serif text-[28px] leading-none ${questoesRevisao > 0 ? 'text-erro' : 'text-ink'}`}>{questoesRevisao}</p>
             </Link>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white border border-ink/10 rounded-lg p-6 shadow-sm">
+            <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-6">
               <h2 className="font-serif text-lg text-ink mb-1">Desempenho por matéria</h2>
               <p className="text-xs text-ink/40 mb-4">Menor aproveitamento primeiro — priorize a revisão dessas matérias.</p>
               {desempenho.length === 0 ? (
@@ -166,7 +172,7 @@ export default function DashboardProfessor() {
                     <YAxis type="category" dataKey="nome" width={130} tick={{ fontSize: 12, fill: '#1B2A4A' }} />
                     <Tooltip
                       formatter={(value: any, _name, props: any) => [`${value}% (${props.payload.acertos}/${props.payload.total})`, 'Acerto']}
-                      contentStyle={{ borderRadius: 8, border: '1px solid #1B2A4A1A', fontSize: 13 }}
+                      contentStyle={{ borderRadius: 10, border: '1px solid #1B2A4A14', fontSize: 13, boxShadow: '0 4px 16px rgba(27,42,74,0.1)' }}
                     />
                     <Bar dataKey="pct" radius={[0, 6, 6, 0]} barSize={22}>
                       {desempenho.map((d) => <Cell key={d.materiaId} fill={corPorPct(d.pct)} />)}
@@ -176,7 +182,7 @@ export default function DashboardProfessor() {
               )}
             </div>
 
-            <div className="bg-white border border-ink/10 rounded-lg p-6 shadow-sm">
+            <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-6">
               <h2 className="font-serif text-lg text-ink mb-1">Evolução do aproveitamento</h2>
               <p className="text-xs text-ink/40 mb-4">Taxa de acerto da turma, últimas 8 semanas.</p>
               <ResponsiveContainer width="100%" height={260}>
@@ -186,7 +192,7 @@ export default function DashboardProfessor() {
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#1B2A4A99' }} unit="%" />
                   <Tooltip
                     formatter={(value: any, _name, props: any) => [`${value}% (${props.payload.total} questões)`, 'Acerto']}
-                    contentStyle={{ borderRadius: 8, border: '1px solid #1B2A4A1A', fontSize: 13 }}
+                    contentStyle={{ borderRadius: 10, border: '1px solid #1B2A4A14', fontSize: 13, boxShadow: '0 4px 16px rgba(27,42,74,0.1)' }}
                   />
                   <Line type="monotone" dataKey="pct" stroke="#C9973E" strokeWidth={2.5} dot={{ r: 4, fill: '#C9973E' }} activeDot={{ r: 6 }} />
                 </LineChart>
@@ -199,14 +205,20 @@ export default function DashboardProfessor() {
   )
 }
 
-function MetricCard({ label, value, accent, alerta, icon: Icon }: { label: string; value: number | string; accent?: boolean; alerta?: boolean; icon: LucideIcon }) {
+const coresIcone: Record<string, string> = {
+  ink: 'bg-ink/5 text-ink/50',
+  gold: 'bg-gold/15 text-gold-dark',
+  acerto: 'bg-acerto-light text-acerto',
+}
+
+function MetricCard({ label, value, cor, icon: Icon }: { label: string; value: number | string; cor: string; icon: LucideIcon }) {
   return (
-    <div className="bg-white border border-ink/10 rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-1">
-        <p className="text-ink/60 text-sm">{label}</p>
-        <Icon className="w-4 h-4 text-ink/25" />
+    <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft hover:shadow-card transition-shadow p-5">
+      <div className={`w-9 h-9 rounded-full flex items-center justify-center mb-3 ${coresIcone[cor]}`}>
+        <Icon className="w-4 h-4" />
       </div>
-      <p className={`font-serif text-3xl ${alerta ? 'text-erro' : accent ? 'text-acerto' : 'text-ink'}`}>{value}</p>
+      <p className="text-ink/50 text-xs mb-1">{label}</p>
+      <p className="font-serif text-[28px] leading-none text-ink">{value}</p>
     </div>
   )
 }

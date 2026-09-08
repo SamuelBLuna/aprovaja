@@ -60,7 +60,7 @@ export default function Login() {
           <h2 className="hidden lg:block font-serif text-2xl text-ink mb-1">Bem-vindo de volta</h2>
           <p className="hidden lg:block text-ink/50 text-sm mb-8">Entre com seus dados para continuar seus estudos.</p>
 
-          <form onSubmit={handleSubmit} className="bg-white border border-ink/10 rounded-xl p-6 space-y-4 shadow-sm">
+          <form onSubmit={handleSubmit} className="bg-white border border-ink/10 rounded-xl p-6 space-y-4 shadow-card">
             <div>
               <label className="block text-sm text-ink/70 mb-1" htmlFor="email">E-mail</label>
               <input

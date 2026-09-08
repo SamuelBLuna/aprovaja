@@ -120,10 +120,204 @@ A partir daí, todo `git push` na branch `main` publica a versão nova automatic
 
 ## Próximos passos sugeridos (não incluídos ainda)
 
-- Edição de questões já criadas (hoje dá pra criar e excluir, mas não editar).
 - Múltiplos professores numa mesma turma pela interface (hoje a tabela já
   suporta isso — `turma_professores` — mas falta a telinha de "convidar
   professor").
-- Gráficos de evolução ao longo do tempo (hoje o painel mostra o retrato
-  atual, não a evolução histórica).
-- Notificações por e-mail quando o professor adiciona algo novo no cronograma.
+- Notificações por e-mail (hoje só existem dentro do próprio app).
+
+---
+
+## Changelog
+
+### Atualização — correções de bugs + gerenciamento de turma + notificações + visão por aluno
+
+**Se você já tinha o projeto rodando, faça nessa ordem:**
+
+1. Rode `supabase/migration_04_correcoes_e_melhorias.sql` no SQL Editor (se ainda não rodou).
+2. Rode `supabase/migration_05_notificacoes.sql` no SQL Editor.
+3. Substitua as pastas `src` e `supabase` pelas novas.
+4. `npm run dev` de novo (sem dependência nova dessa vez).
+
+**O que mudou:**
+
+- **Bug corrigido**: o tópico escolhido ao criar um grupo de questões nunca
+  era salvo de verdade (a tabela nem tinha essa coluna) — por isso as
+  perguntas do grupo não apareciam ao filtrar por tópico. Corrigido, e a
+  migration já tenta recuperar o tópico certo dos grupos que você já criou.
+- **Bug corrigido**: o embaralhamento de questões no banco livre do aluno
+  era enviesado, fazendo sempre aparecer as mesmas primeiro. Trocado por um
+  embaralhamento correto, e agora questões nunca respondidas vêm primeiro,
+  as erradas em seguida, e as já dominadas (acertadas recentemente) vão
+  pro final — em vez de ficar repetindo sempre a mesma.
+- **Notificações para o aluno**: quando o professor encerra uma turma, cada
+  aluno recebe um aviso persistente ("Turma encerrada") que aparece assim
+  que ele entra no app, mesmo já sem acesso à turma. Ele pode dispensar o
+  aviso quando quiser.
+- **Gerenciar turma** (nova seção no Cronograma): editar nome da turma, ver
+  a lista de alunos matriculados com opção de remover um específico, e
+  excluir a turma inteira (com confirmação por nome) para quando foi criada
+  por engano. Também dá pra reativar uma turma encerrada sem querer.
+- **Turma "vencida"**: se a data final passou mas ninguém clicou em
+  encerrar, o sistema já trava a criação de conteúdo novo sozinho e mostra
+  um aviso sugerindo encerrar de vez.
+- **Nova tela do professor: Alunos** — lista todo mundo matriculado na
+  turma com resumo (questões respondidas, taxa de acerto, última
+  atividade) e, ao clicar, abre o desempenho detalhado por matéria e o
+  progresso no cronograma daquele aluno específico. Essa era a peça que
+  faltava desde a ideia original do projeto: acompanhar UM aluno de perto,
+  não só a turma como um todo.
+- **Questões**: checkbox "só as que precisam de revisão", e o card do
+  Painel agora leva direto pra essa lista filtrada.
+- Pequenos reforços de tratamento de erro (ex: tela de Desempenho do aluno
+  agora mostra uma mensagem clara em vez de ficar em branco se algo falhar).
+
+---
+
+## Changelog
+
+### Atualização — melhorias de professor, aluno e segurança
+
+**Se você já tinha o projeto rodando, faça nessa ordem:**
+
+1. Rode `supabase/migration_01_fix_signup_e_rls.sql` no SQL Editor (se ainda não rodou).
+2. Rode `supabase/migration_02_professor_aluno_melhorias.sql` no SQL Editor.
+3. Substitua as pastas `src`, `package.json` e `supabase` deste projeto pelas novas.
+4. Rode `npm install` de novo (entrou uma biblioteca nova, `recharts`, para os gráficos).
+
+**O que mudou:**
+
+- **Segurança**: aluno sem turma válida agora nunca é criado — é uma trava no banco
+  de dados (não só na tela), então nem em caso de erro fica conta "órfã".
+- **Painel do professor**: gráfico de barras por matéria e gráfico de evolução do
+  aproveitamento nas últimas 8 semanas, além das métricas.
+- **Cronograma**: agora aceita um intervalo de dias (ex: dia 1 ao 14) num único
+  item, em vez de repetir dia a dia. Campo de título removido — a matéria já
+  identifica o item. Calendário maior, com botão "ir para hoje". Também dá
+  para editar um item já criado.
+- **Matérias**: editar nome da matéria e nome/descrição de um tópico.
+- **Questões**: fluxo de "questão avulsa" e "grupo de questões" agora são
+  telas separadas. No grupo, você define o texto-base uma vez e vai
+  adicionando pergunta após pergunta. Questões (avulsas e de grupo) podem
+  ser editadas.
+- **Simulados**: dá para editar um simulado já criado (trocar questões,
+  título, tempo, data limite).
+- **Configurações**: trocar a senha agora exige a senha atual (professor e aluno).
+- **Painel do aluno**: redesenhado — calendário maior, cronograma do dia com
+  contagem de questões vinculadas, botão de ação "Ir para Questões",
+  indicadores (questões respondidas, taxa de acerto, dias consecutivos,
+  questões para revisão) e card do último simulado.
+- **Nova tela: Desempenho (aluno)**: gráficos de desempenho por matéria e
+  evolução diária, com filtro por hoje / 7 dias / 30 dias / período
+  personalizado.
+- **Telas de Questões e Simulados do aluno** agora mostram uma mensagem clara
+  quando ele não está em nenhuma turma, em vez de aparecer vazio sem explicação.
+- **Responsividade**: menu lateral vira gaveta no celular, grades reorganizam
+  em coluna única em telas pequenas.
+
+---
+
+### Atualização — correções de fluxo do aluno + design profissional
+
+**Se você já tinha o projeto rodando, faça nessa ordem:**
+
+1. Rode `supabase/migration_06_conclusao_por_dia.sql` no SQL Editor.
+2. Substitua as pastas `src` e `supabase` pelas novas.
+3. Rode `npm install` de novo (entrou uma biblioteca nova: `lucide-react`, pros ícones).
+4. `npm run dev`.
+
+**O que mudou:**
+
+- **Bug corrigido**: marcar um dia como concluído num item de cronograma que
+  cobre vários dias (ex: dia 1 ao 5) não marca mais os outros dias junto —
+  agora cada dia tem sua própria conclusão.
+- **Questões do aluno**: agora mostra a matéria e o tópico da questão
+  enquanto ele responde, no banco livre.
+- **Trava de repetição infinita**: questões vinculadas pelo professor a um
+  dia do cronograma agora só podem ser respondidas uma vez — se o aluno sair
+  e voltar, vê exatamente a resposta que já deu, sem poder refazer. Um item
+  com questões só fica "concluído" depois que TODAS forem respondidas
+  (automático, sem checkbox manual). Itens sem questão continuam com
+  checkbox manual normal. O banco de questões livre continua permitindo
+  responder à vontade, como já era.
+- **Bug corrigido**: horário de "disponível até" dos simulados salvando 3h
+  adiantado/atrasado (problema clássico de fuso horário no campo de
+  data/hora). Também refiz o cronômetro do simulado pra recalcular sempre a
+  partir do horário absoluto, em vez de ir descontando segundo a segundo —
+  mais preciso mesmo se a aba ficar em segundo plano.
+- **Mobile**: corrigido scroll lateral indevido em algumas telas.
+- **Visual**: ícones de verdade na navegação, telas de Login/Cadastro
+  redesenhadas com painel de marca, cards de métricas com ícone, e uma
+  blindagem contra tela branca em caso de erro inesperado.
+
+## Uma recomendação sincera
+
+Tem uma coisa que não é bug nem feature, mas que pode te pegar de surpresa
+se você não souber: **projetos gratuitos do Supabase pausam sozinhos depois
+de ~7 dias sem nenhum acesso**. Se o professor e o aluno passarem uma semana
+de férias sem abrir o app, ele "morre" sozinho — e a mensagem de erro que
+aparece não deixa isso óbvio. Basta entrar no painel do Supabase e clicar em
+"Restore" quando isso acontecer, mas é bom saber que existe, pra não achar
+que quebrou de verdade bem na véspera de uma prova. Se algum dia isso virar
+sério (mais de um professor, mais alunos pagando), vale migrar pro plano
+pago do Supabase só por causa disso.
+
+---
+
+### Atualização — simulados no estilo de prova real + gestão de cronograma
+
+**Se você já tinha o projeto rodando, faça nessa ordem:**
+
+1. Rode `supabase/migration_07_sincronizar_relogio.sql` no SQL Editor.
+2. Substitua as pastas `src` e `supabase` pelas novas.
+3. Não precisa de `npm install` dessa vez (nenhuma dependência nova).
+
+**O que mudou:**
+
+- **Bug corrigido de vez**: o cronômetro do simulado sempre mostrava um
+  pouco mais de tempo do que o configurado. A causa era confiar no relógio
+  do computador do aluno, que pode estar dessincronizado. Agora o app
+  sincroniza com o relógio do servidor assim que o simulado começa.
+- **Simulado com cara de prova de concurso de verdade**: as questões agora
+  aparecem agrupadas por matéria, com um título centralizado separando cada
+  seção — e o professor escolhe a ordem das matérias (com setas ↑↓), pra
+  seguir a ordem oficial do edital.
+- **Grade de progresso**: durante o simulado, uma grade de quadradinhos
+  numerados mostra em verde quais questões já foram respondidas — clicar
+  num número leva direto pra aquela questão.
+- **Resultados do simulado**: o professor agora vê, pra cada aluno que
+  fez o simulado, o percentual de acerto e pode abrir o detalhe
+  questão por questão (o que respondeu, se acertou, qual era a certa). O
+  aluno também tem essa mesma visão de detalhe no resultado dele.
+- **Cronograma**: agora dá pra adicionar, sortear e remover questões de uma
+  atividade tanto na criação quanto na edição — igual já funcionava nos
+  simulados.
+- **Questões avulsas**: depois de salvar uma, a tela continua com a matéria
+  e o tópico preenchidos, pronta pra cadastrar a próxima em sequência (bom
+  pra quem vai digitar um lote grande de questões de uma vez).
+
+---
+
+### Atualização — funcionalidades pendentes + repaginação visual completa
+
+**Se você já tinha o projeto rodando, faça nessa ordem:**
+
+1. Rode `supabase/migration_08_pausar_cronometro.sql` no SQL Editor.
+2. Substitua **todo o projeto** (não só `src`/`supabase`) — o `tailwind.config.js` também mudou. Mais seguro: baixe o zip inteiro e substitua tudo, exceto o seu `.env`.
+3. Não precisa de `npm install` (nenhuma dependência nova).
+
+**O que mudou:**
+
+- **Cronômetro do simulado agora pausa de verdade**: só conta o tempo em
+  que o aluno está ativamente na tela. Se ele sair (ou sumir por um mês),
+  o tempo fica congelado exatamente onde parou até ele voltar e continuar.
+- **Painel do aluno avisa sobre simulados pendentes**: agora aparece um
+  aviso destacado no topo assim que entra — "você tem um simulado pra
+  fazer" ou "pausado, continue" — em vez de só mostrar depois de concluído.
+- **Desempenho por tópico**: no painel de Desempenho do aluno, clicar numa
+  barra de matéria agora abre o detalhamento por tópico dentro dela —
+  mostra exatamente onde ele está errando mais.
+- **Repaginação visual completa**: nova paleta e sombras mais suaves,
+  cantos mais arredondados, sidebar com gradiente e avatar de iniciais,
+  cards com ícone em círculo, tipografia mais consistente em todas as
+  telas. Criei um pequeno sistema de design (`src/components/ui`) pra
+  manter tudo com a mesma cara daqui pra frente.

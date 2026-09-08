@@ -72,11 +72,11 @@ export default function QuestionCard({
   }
 
   if (verificando) {
-    return <div className="bg-white border border-ink/10 rounded p-4 text-sm text-ink/40">Carregando…</div>
+    return <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-4 text-sm text-ink/40">Carregando…</div>
   }
 
   return (
-    <div className="bg-white border border-ink/10 rounded p-4">
+    <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-4">
       {(materiaNome || topicoNome) && (
         <div className="flex items-center gap-2 mb-2 text-xs">
           {materiaNome && <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{materiaNome}</span>}

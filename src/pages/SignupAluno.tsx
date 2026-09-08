@@ -80,7 +80,7 @@ export default function SignupAluno() {
           <h2 className="hidden lg:block font-serif text-2xl text-ink mb-1">Criar sua conta</h2>
           <p className="hidden lg:block text-ink/50 text-sm mb-8">Peça o código da turma ao seu professor antes de começar.</p>
 
-          <form onSubmit={handleSubmit} className="bg-white border border-ink/10 rounded-xl p-6 space-y-4 shadow-sm">
+          <form onSubmit={handleSubmit} className="bg-white border border-ink/10 rounded-xl p-6 space-y-4 shadow-card">
             <div>
               <label className="block text-sm text-ink/70 mb-1" htmlFor="nome">Nome completo</label>
               <input id="nome" required value={nome} onChange={(e) => setNome(e.target.value)}

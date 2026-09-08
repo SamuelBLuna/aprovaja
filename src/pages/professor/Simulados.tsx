@@ -1,7 +1,7 @@
 import { useEffect, useState, FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Turma, Materia, Topico, Questao, Simulado } from '../../lib/types'
+import { Turma, Materia, Topico, Questao, Simulado, SimuladoTentativa } from '../../lib/types'
 import { isoHoje } from '../../lib/dates'
 
 function embaralhar<T>(arr: T[]): T[] {
@@ -17,9 +17,6 @@ function estaAtivaDeVerdade(t: Turma) {
   return t.status === 'ativa' && t.data_fim >= isoHoje()
 }
 
-// o input datetime-local não sabe de fuso horário — sem essa conversão,
-// o valor digitado (hora local) era salvo como se já fosse UTC, e a hora
-// exibida depois saía errada (ex: 22:00 virava 19:00 em Brasília).
 function datetimeLocalParaISO(valor: string): string | null {
   if (!valor) return null
   return new Date(valor).toISOString()
@@ -30,6 +27,21 @@ function isoParaDatetimeLocal(iso: string | null): string {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function formatarTempo(segundos: number) {
+  const s = Math.max(0, Math.floor(segundos))
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+}
+
+interface TentativaComAluno extends SimuladoTentativa {
+  profiles?: { nome: string; email: string } | null
+}
+interface RespostaDetalhe {
+  questao_id: string
+  resposta_dada: string
+  correta: boolean
+  questoes: Questao & { materias?: { nome: string } | null }
 }
 
 export default function Simulados() {
@@ -51,8 +63,15 @@ export default function Simulados() {
   const [materiaId, setMateriaId] = useState('')
   const [questoesFiltradas, setQuestoesFiltradas] = useState<Questao[]>([])
   const [selecionadas, setSelecionadas] = useState<Map<string, Questao>>(new Map())
+  const [ordemMaterias, setOrdemMaterias] = useState<string[]>([]) // ordem em que as matérias aparecem na prova
   const [topicoAleatorio, setTopicoAleatorio] = useState('')
   const [quantidade, setQuantidade] = useState(10)
+
+  // resultados
+  const [verResultadosId, setVerResultadosId] = useState<string | null>(null)
+  const [resultados, setResultados] = useState<Record<string, TentativaComAluno[]>>({})
+  const [alunoExpandidoId, setAlunoExpandidoId] = useState<string | null>(null)
+  const [detalhesPorTentativa, setDetalhesPorTentativa] = useState<Record<string, RespostaDetalhe[]>>({})
 
   useEffect(() => {
     supabase.from('turmas').select('*').order('created_at', { ascending: false }).then(({ data }) => {
@@ -74,12 +93,21 @@ export default function Simulados() {
     supabase.from('questoes').select('*').eq('materia_id', materiaId).then(({ data }) => setQuestoesFiltradas((data as Questao[]) || []))
   }, [materiaId])
 
+  function nomeDaMateria(id: string) {
+    return materias.find((m) => m.id === id)?.nome || 'Matéria'
+  }
+
+  function garantirNaOrdem(materiaIdNova: string) {
+    setOrdemMaterias((prev) => (prev.includes(materiaIdNova) ? prev : [...prev, materiaIdNova]))
+  }
+
   function toggleManual(q: Questao) {
     setSelecionadas((prev) => {
       const next = new Map(prev)
       if (next.has(q.id)) next.delete(q.id); else next.set(q.id, q)
       return next
     })
+    garantirNaOrdem(q.materia_id)
   }
 
   function removerSelecionada(id: string) {
@@ -100,11 +128,35 @@ export default function Simulados() {
       pool.forEach((q) => next.set(q.id, q))
       return next
     })
+    garantirNaOrdem(materiaId)
+  }
+
+  function moverMateria(indice: number, direcao: -1 | 1) {
+    setOrdemMaterias((prev) => {
+      const novo = [...prev]
+      const alvo = indice + direcao
+      if (alvo < 0 || alvo >= novo.length) return prev
+      ;[novo[indice], novo[alvo]] = [novo[alvo], novo[indice]]
+      return novo
+    })
+  }
+
+  // matérias com pelo menos 1 questão selecionada, na ordem escolhida
+  const materiasComSelecao = ordemMaterias.filter((mid) => Array.from(selecionadas.values()).some((q) => q.materia_id === mid))
+
+  function questoesFinaisOrdenadas(): Questao[] {
+    const resultado: Questao[] = []
+    for (const mid of materiasComSelecao) {
+      for (const q of selecionadas.values()) {
+        if (q.materia_id === mid) resultado.push(q)
+      }
+    }
+    return resultado
   }
 
   function resetForm() {
     setTitulo(''); setDescricao(''); setTempoLimite(60); setDataLimite('')
-    setMateriaId(''); setSelecionadas(new Map()); setTopicoAleatorio(''); setQuantidade(10)
+    setMateriaId(''); setSelecionadas(new Map()); setOrdemMaterias([]); setTopicoAleatorio(''); setQuantidade(10)
     setEditandoId(null)
   }
 
@@ -124,9 +176,14 @@ export default function Simulados() {
     setDataLimite(isoParaDatetimeLocal(s.data_limite))
     setMateriaId('')
 
-    const { data } = await supabase.from('simulado_questoes').select('questoes(*)').eq('simulado_id', s.id)
+    const { data } = await supabase.from('simulado_questoes').select('ordem, questoes(*)').eq('simulado_id', s.id).order('ordem')
     const questoesAtuais = (data || []).map((r: any) => r.questoes).filter(Boolean) as Questao[]
     setSelecionadas(new Map(questoesAtuais.map((q) => [q.id, q])))
+
+    const ordemInicial: string[] = []
+    questoesAtuais.forEach((q) => { if (!ordemInicial.includes(q.materia_id)) ordemInicial.push(q.materia_id) })
+    setOrdemMaterias(ordemInicial)
+
     setShowForm(true)
   }
 
@@ -136,6 +193,7 @@ export default function Simulados() {
       alert('Escolha ao menos uma questão para o simulado.')
       return
     }
+    const questoesEmOrdem = questoesFinaisOrdenadas()
 
     if (editandoId) {
       const { error } = await supabase.from('simulados').update({
@@ -145,7 +203,7 @@ export default function Simulados() {
       if (error) { alert('Erro ao salvar: ' + error.message); return }
 
       await supabase.from('simulado_questoes').delete().eq('simulado_id', editandoId)
-      const rows = Array.from(selecionadas.keys()).map((qId, i) => ({ simulado_id: editandoId, questao_id: qId, ordem: i }))
+      const rows = questoesEmOrdem.map((q, i) => ({ simulado_id: editandoId, questao_id: q.id, ordem: i }))
       await supabase.from('simulado_questoes').insert(rows)
 
       resetForm(); setShowForm(false); carregarSimulados()
@@ -158,7 +216,7 @@ export default function Simulados() {
     }).select().single()
 
     if (!error && data) {
-      const rows = Array.from(selecionadas.keys()).map((qId, i) => ({ simulado_id: (data as Simulado).id, questao_id: qId, ordem: i }))
+      const rows = questoesEmOrdem.map((q, i) => ({ simulado_id: (data as Simulado).id, questao_id: q.id, ordem: i }))
       await supabase.from('simulado_questoes').insert(rows)
       resetForm()
       setShowForm(false)
@@ -174,48 +232,88 @@ export default function Simulados() {
     carregarSimulados()
   }
 
+  async function abrirResultados(simuladoId: string) {
+    if (verResultadosId === simuladoId) { setVerResultadosId(null); return }
+    setVerResultadosId(simuladoId)
+    setAlunoExpandidoId(null)
+    if (!resultados[simuladoId]) {
+      const { data } = await supabase
+        .from('simulado_tentativas')
+        .select('*, profiles(nome, email)')
+        .eq('simulado_id', simuladoId)
+        .order('finalizado_em', { ascending: false, nullsFirst: false })
+      setResultados((prev) => ({ ...prev, [simuladoId]: (data as any) || [] }))
+    }
+  }
+
+  async function abrirDetalheAluno(tentativaId: string) {
+    if (alunoExpandidoId === tentativaId) { setAlunoExpandidoId(null); return }
+    setAlunoExpandidoId(tentativaId)
+    if (!detalhesPorTentativa[tentativaId]) {
+      const { data } = await supabase.from('respostas').select('questao_id, resposta_dada, correta, questoes(*, materias(nome))').eq('tentativa_id', tentativaId)
+      setDetalhesPorTentativa((prev) => ({ ...prev, [tentativaId]: (data as any) || [] }))
+    }
+  }
+
   const turmasAtivas = turmas.filter(estaAtivaDeVerdade)
   const turmasParaSelecionar = editandoId ? turmas : turmasAtivas
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-serif text-2xl text-ink">Simulados</h1>
+        <h1 className="font-serif text-[26px] text-ink">Simulados</h1>
         {turmasAtivas.length > 0 && (
-          <button onClick={() => (showForm ? (setShowForm(false), resetForm()) : abrirNovo())} className="bg-ink text-white px-4 py-2 rounded text-sm font-medium hover:bg-ink-light">
+          <button onClick={() => (showForm ? (setShowForm(false), resetForm()) : abrirNovo())} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft">
             {showForm ? 'Cancelar' : '+ Novo simulado'}
           </button>
         )}
       </div>
 
       {showForm && (
-        <form onSubmit={salvarSimulado} className="bg-white border border-ink/10 rounded p-5 mb-6 space-y-4">
+        <form onSubmit={salvarSimulado} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 mb-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <select value={turmaId} onChange={(e) => setTurmaId(e.target.value)} className="border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+            <select value={turmaId} onChange={(e) => setTurmaId(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
               {turmasParaSelecionar.map((t) => <option key={t.id} value={t.id}>{t.nome}{t.status === 'encerrada' ? ' (encerrada)' : ''}</option>)}
             </select>
-            <input required value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título do simulado" className="sm:col-span-2 border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
-            <input type="number" min={5} value={tempoLimite} onChange={(e) => setTempoLimite(Number(e.target.value))} className="border border-ink/20 rounded px-3 py-2 text-sm" placeholder="Minutos" />
+            <input required value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título do simulado" className="sm:col-span-2 border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
+            <input type="number" min={5} value={tempoLimite} onChange={(e) => setTempoLimite(Number(e.target.value))} className="border border-ink/15 rounded-lg px-3 py-2 text-sm" placeholder="Minutos" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Descrição (opcional)" className="border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+            <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Descrição (opcional)" className="border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
             <div>
               <label className="text-xs text-ink/60 mr-2">Disponível até (opcional):</label>
-              <input type="datetime-local" value={dataLimite} onChange={(e) => setDataLimite(e.target.value)} className="border border-ink/20 rounded px-3 py-1.5 text-sm" />
+              <input type="datetime-local" value={dataLimite} onChange={(e) => setDataLimite(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-1.5 text-sm" />
             </div>
           </div>
 
-          {selecionadas.size > 0 && (
+          {materiasComSelecao.length > 0 && (
             <div className="bg-paper/60 border border-ink/10 rounded p-3">
-              <p className="text-sm text-ink font-medium mb-2">{selecionadas.size} questão(ões) no simulado</p>
-              <div className="max-h-40 overflow-y-auto space-y-1">
-                {Array.from(selecionadas.values()).map((q) => (
-                  <div key={q.id} className="flex items-start justify-between gap-2 text-xs bg-white border border-ink/10 rounded px-2 py-1.5">
-                    <span className="text-ink/80">{q.enunciado.slice(0, 90)}{q.enunciado.length > 90 ? '…' : ''}</span>
-                    <button type="button" onClick={() => removerSelecionada(q.id)} className="text-erro shrink-0 hover:underline">remover</button>
-                  </div>
-                ))}
+              <p className="text-sm text-ink font-medium mb-2">Ordem das matérias na prova</p>
+              <div className="space-y-2">
+                {materiasComSelecao.map((mid, i) => {
+                  const questoesDaMateria = Array.from(selecionadas.values()).filter((q) => q.materia_id === mid)
+                  return (
+                    <div key={mid} className="bg-white border border-ink/10 rounded">
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <span className="text-sm text-ink font-medium">{i + 1}. {nomeDaMateria(mid)} <span className="text-ink/40 font-normal">({questoesDaMateria.length} questões)</span></span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button type="button" onClick={() => moverMateria(i, -1)} disabled={i === 0} className="w-6 h-6 rounded hover:bg-ink/5 disabled:opacity-20 text-ink/60">↑</button>
+                          <button type="button" onClick={() => moverMateria(i, 1)} disabled={i === materiasComSelecao.length - 1} className="w-6 h-6 rounded hover:bg-ink/5 disabled:opacity-20 text-ink/60">↓</button>
+                        </div>
+                      </div>
+                      <div className="border-t border-ink/10 px-3 py-2 space-y-1 max-h-28 overflow-y-auto">
+                        {questoesDaMateria.map((q) => (
+                          <div key={q.id} className="flex items-start justify-between gap-2 text-xs">
+                            <span className="text-ink/70">{q.enunciado.slice(0, 80)}{q.enunciado.length > 80 ? '…' : ''}</span>
+                            <button type="button" onClick={() => removerSelecionada(q.id)} className="text-erro shrink-0 hover:underline">remover</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
+              <p className="text-xs text-ink/40 mt-2">As setas mudam a ordem em que as matérias aparecem pro aluno — útil pra seguir a ordem oficial do edital.</p>
             </div>
           )}
 
@@ -224,7 +322,7 @@ export default function Simulados() {
             <button type="button" onClick={() => setModo('aleatorio')} className={`text-sm ${modo === 'aleatorio' ? 'text-ink font-medium border-b-2 border-gold' : 'text-ink/50'}`}>Sortear questões</button>
           </div>
 
-          <select value={materiaId} onChange={(e) => setMateriaId(e.target.value)} className="border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+          <select value={materiaId} onChange={(e) => setMateriaId(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
             <option value="">Selecione a matéria pra adicionar mais questões</option>
             {materias.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
           </select>
@@ -246,37 +344,87 @@ export default function Simulados() {
               <div className="flex flex-wrap items-end gap-3">
                 <div>
                   <label className="block text-xs text-ink/60 mb-1">Tópico (opcional)</label>
-                  <select value={topicoAleatorio} onChange={(e) => setTopicoAleatorio(e.target.value)} className="border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+                  <select value={topicoAleatorio} onChange={(e) => setTopicoAleatorio(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
                     <option value="">Qualquer tópico</option>
                     {topicos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs text-ink/60 mb-1">Quantidade</label>
-                  <input type="number" min={1} value={quantidade} onChange={(e) => setQuantidade(Number(e.target.value))} className="w-24 border border-ink/20 rounded px-3 py-2 text-sm" />
+                  <input type="number" min={1} value={quantidade} onChange={(e) => setQuantidade(Number(e.target.value))} className="w-24 border border-ink/15 rounded-lg px-3 py-2 text-sm" />
                 </div>
-                <button type="button" onClick={sortear} className="border border-ink/20 rounded px-3 py-2 text-sm hover:bg-ink/5">Sortear</button>
+                <button type="button" onClick={sortear} className="border border-ink/15 rounded-lg px-3 py-2 text-sm hover:bg-ink/5">Sortear</button>
               </div>
             )
           )}
 
-          <button className="bg-ink text-white px-4 py-2 rounded text-sm font-medium hover:bg-ink-light">{editandoId ? 'Salvar alterações' : 'Criar simulado'}</button>
+          <button className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft">{editandoId ? 'Salvar alterações' : 'Criar simulado'}</button>
         </form>
       )}
 
       <div className="space-y-2">
-        {simulados.map((s) => (
-          <div key={s.id} className="bg-white border border-ink/10 rounded px-4 py-3 flex justify-between items-center">
-            <div>
-              <p className="text-ink font-medium text-sm">{s.titulo} <span className="text-ink/40 font-normal">— {s.turmas?.nome}</span></p>
-              <p className="text-ink/50 text-xs">{s.tempo_limite_minutos} min {s.data_limite ? `· disponível até ${new Date(s.data_limite).toLocaleString('pt-BR')}` : ''}</p>
+        {simulados.map((s) => {
+          const aberto = verResultadosId === s.id
+          const lista = resultados[s.id] || []
+          const finalizados = lista.filter((t) => t.finalizado_em)
+          return (
+            <div key={s.id} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft overflow-hidden">
+              <div className="px-4 py-3 flex justify-between items-center gap-3">
+                <div className="min-w-0">
+                  <p className="text-ink font-medium text-sm truncate">{s.titulo} <span className="text-ink/40 font-normal">— {s.turmas?.nome}</span></p>
+                  <p className="text-ink/50 text-xs">{s.tempo_limite_minutos} min {s.data_limite ? `· disponível até ${new Date(s.data_limite).toLocaleString('pt-BR')}` : ''}</p>
+                </div>
+                <div className="flex gap-3 shrink-0">
+                  <button onClick={() => abrirResultados(s.id)} className="text-gold text-xs hover:underline">{aberto ? 'Fechar' : 'Ver resultados'}</button>
+                  <button onClick={() => abrirEdicao(s)} className="text-gold text-xs hover:underline">Editar</button>
+                  <button onClick={() => excluirSimulado(s.id)} className="text-erro text-xs hover:underline">Excluir</button>
+                </div>
+              </div>
+
+              {aberto && (
+                <div className="border-t border-ink/10 bg-paper/50 px-4 py-4">
+                  {finalizados.length === 0 ? (
+                    <p className="text-ink/40 text-sm">Nenhum aluno finalizou esse simulado ainda.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {finalizados.map((t) => {
+                        const total = t.acertos + t.erros
+                        const pct = total > 0 ? Math.round((t.acertos / total) * 100) : 0
+                        const detalheAberto = alunoExpandidoId === t.id
+                        return (
+                          <div key={t.id} className="bg-white border border-ink/10 rounded">
+                            <button onClick={() => abrirDetalheAluno(t.id)} className="w-full flex items-center justify-between px-3 py-2 text-left">
+                              <div className="min-w-0">
+                                <p className="text-sm text-ink truncate">{t.profiles?.nome}</p>
+                                <p className="text-xs text-ink/40">{formatarTempo(t.tempo_total_segundos || 0)}</p>
+                              </div>
+                              <span className={`text-sm font-medium shrink-0 ${pct >= 70 ? 'text-acerto' : pct >= 50 ? 'text-gold' : 'text-erro'}`}>{pct}% ({t.acertos}/{total})</span>
+                            </button>
+                            {detalheAberto && (
+                              <div className="border-t border-ink/10 px-3 py-3 space-y-1.5">
+                                {(detalhesPorTentativa[t.id] || []).map((r) => (
+                                  <div key={r.questao_id} className={`rounded px-2.5 py-2 text-xs border ${r.correta ? 'border-acerto/30 bg-acerto/5' : 'border-erro/30 bg-erro/5'}`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="bg-ink/5 text-ink/70 px-1.5 py-0.5 rounded">{r.questoes.materias?.nome}</span>
+                                      <span className={r.correta ? 'text-acerto font-medium' : 'text-erro font-medium'}>{r.correta ? 'Acertou' : 'Errou'}</span>
+                                    </div>
+                                    <p className="text-ink">{r.questoes.enunciado}</p>
+                                    <p className="text-ink/50 mt-1">Resposta: <strong>{r.resposta_dada}</strong>{!r.correta && <> · Correta: <strong>{r.questoes.resposta_correta}</strong></>}</p>
+                                  </div>
+                                ))}
+                                {!detalhesPorTentativa[t.id] && <p className="text-ink/40 text-xs">Carregando…</p>}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="flex gap-3 shrink-0">
-              <button onClick={() => abrirEdicao(s)} className="text-gold text-xs hover:underline">Editar</button>
-              <button onClick={() => excluirSimulado(s.id)} className="text-erro text-xs hover:underline">Excluir</button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
         {simulados.length === 0 && <p className="text-ink/50 text-sm">Nenhum simulado criado ainda.</p>}
       </div>
     </div>

@@ -7,6 +7,14 @@ import SemTurma from '../../components/SemTurma'
 import { usePossuiTurma } from '../../lib/usePossuiTurma'
 
 type SimuladoComTurma = Simulado & { turmas?: { nome: string } }
+type QuestaoComExtra = Questao & { grupos_questoes?: { texto_base: string } | null; materias?: { nome: string } | null }
+
+interface RespostaDetalhe {
+  questao_id: string
+  resposta_dada: string
+  correta: boolean
+  questoes: QuestaoComExtra
+}
 
 function formatarTempo(segundos: number) {
   const s = Math.max(0, Math.floor(segundos))
@@ -20,9 +28,20 @@ export default function SimuladosAluno() {
   const possuiTurma = usePossuiTurma()
   const [simulados, setSimulados] = useState<SimuladoComTurma[]>([])
   const [tentativas, setTentativas] = useState<Record<string, SimuladoTentativa>>({})
-  const [emAndamento, setEmAndamento] = useState<{ simulado: SimuladoComTurma; tentativa: SimuladoTentativa; questoes: (Questao & { grupos_questoes?: { texto_base: string } | null })[] } | null>(null)
+  const [emAndamento, setEmAndamento] = useState<{ simulado: SimuladoComTurma; tentativa: SimuladoTentativa; questoes: QuestaoComExtra[] } | null>(null)
   const [tempoRestante, setTempoRestante] = useState(0)
-  const intervalRef = useRef<number | null>(null)
+  const [respondidas, setRespondidas] = useState<Set<string>>(new Set())
+
+  const [verDetalhesId, setVerDetalhesId] = useState<string | null>(null)
+  const [detalhes, setDetalhes] = useState<Record<string, RespostaDetalhe[]>>({})
+
+  // referências pro controle do cronômetro pausável
+  const acumuladoRef = useRef(0) // segundos já usados ANTES desta sessão de visualização
+  const sessaoInicioRef = useRef(0) // "agora" (corrigido pelo servidor) quando esta sessão começou
+  const offsetServidorRef = useRef(0)
+  const tentativaIdRef = useRef<string | null>(null)
+  const duracaoSegundosRef = useRef(0)
+  const flushandoRef = useRef(false)
 
   useEffect(() => { carregar() }, [profile])
 
@@ -53,69 +72,174 @@ export default function SimuladosAluno() {
     }
     if (tentativa.finalizado_em) return // já finalizado, não reabre
 
-    const { data: sq } = await supabase.from('simulado_questoes').select('ordem, questoes(*, grupos_questoes(texto_base))').eq('simulado_id', sim.id).order('ordem')
+    const { data: sq } = await supabase.from('simulado_questoes').select('ordem, questoes(*, grupos_questoes(texto_base), materias(nome))').eq('simulado_id', sim.id).order('ordem')
     const questoes = (sq || []).map((r: any) => r.questoes).filter(Boolean)
+
+    const { data: jaRespondidas } = await supabase.from('respostas').select('questao_id').eq('tentativa_id', tentativa.id)
+    setRespondidas(new Set((jaRespondidas || []).map((r: any) => r.questao_id)))
 
     setEmAndamento({ simulado: sim, tentativa, questoes })
   }
 
-  // Recalcula sempre a partir do horário absoluto (início + limite), em vez de
-  // ir descontando 1 a 1 — assim o cronômetro não perde precisão se a aba
-  // ficar em segundo plano ou o navegador atrasar o timer.
+  // Cronômetro que PAUSA quando o aluno sai da tela: só o tempo em que ele
+  // está ativamente vendo o simulado conta pro limite. O relógio do
+  // servidor (não o do computador do aluno) é usado como referência.
   useEffect(() => {
     if (!emAndamento) return
-    const inicioMs = new Date(emAndamento.tentativa.iniciado_em).getTime()
-    const limiteMs = inicioMs + emAndamento.simulado.tempo_limite_minutos * 60 * 1000
+    let cancelado = false
+    let intervalId: number | undefined
+    let flushIntervalId: number | undefined
 
-    function atualizar() {
-      const restante = Math.max(0, Math.round((limiteMs - Date.now()) / 1000))
-      setTempoRestante(restante)
-      if (restante <= 0) {
-        if (intervalRef.current) window.clearInterval(intervalRef.current)
-        finalizar()
-      }
+    async function persistirTempoUsado(segundosNestaSessao: number) {
+      const novoTotal = Math.min(duracaoSegundosRef.current, acumuladoRef.current + segundosNestaSessao)
+      await supabase.from('simulado_tentativas').update({ tempo_usado_segundos: novoTotal }).eq('id', tentativaIdRef.current)
     }
 
-    atualizar()
-    intervalRef.current = window.setInterval(atualizar, 1000)
-    return () => { if (intervalRef.current) window.clearInterval(intervalRef.current) }
+    async function configurar() {
+      const clienteAntes = Date.now()
+      const { data: horaServidor } = await supabase.rpc('hora_atual')
+      const clienteDepois = Date.now()
+      const offsetMs = horaServidor ? new Date(horaServidor).getTime() - (clienteAntes + clienteDepois) / 2 : 0
+      if (cancelado || !emAndamento) return
+
+      offsetServidorRef.current = offsetMs
+      acumuladoRef.current = emAndamento.tentativa.tempo_usado_segundos || 0
+      duracaoSegundosRef.current = emAndamento.simulado.tempo_limite_minutos * 60
+      tentativaIdRef.current = emAndamento.tentativa.id
+      sessaoInicioRef.current = Date.now() + offsetMs
+
+      function atualizar() {
+        const agora = Date.now() + offsetServidorRef.current
+        const decorridoNestaSessao = Math.max(0, Math.round((agora - sessaoInicioRef.current) / 1000))
+        const restante = Math.max(0, duracaoSegundosRef.current - acumuladoRef.current - decorridoNestaSessao)
+        setTempoRestante(restante)
+        if (restante <= 0) {
+          if (intervalId) window.clearInterval(intervalId)
+          if (flushIntervalId) window.clearInterval(flushIntervalId)
+          persistirTempoUsado(decorridoNestaSessao).then(() => finalizar())
+        }
+      }
+
+      atualizar()
+      intervalId = window.setInterval(atualizar, 1000)
+
+      // salva o progresso a cada 10s, pra não perder tudo se o navegador fechar de repente
+      flushIntervalId = window.setInterval(() => {
+        const decorrido = Math.max(0, Math.round((Date.now() + offsetServidorRef.current - sessaoInicioRef.current) / 1000))
+        persistirTempoUsado(decorrido)
+      }, 10000)
+    }
+
+    configurar()
+
+    // ao sair da tela do simulado (navegar pra outro lugar, fechar, etc),
+    // salva o tempo usado até aqui — é isso que "pausa" o cronômetro
+    return () => {
+      cancelado = true
+      if (intervalId) window.clearInterval(intervalId)
+      if (flushIntervalId) window.clearInterval(flushIntervalId)
+      if (tentativaIdRef.current && !flushandoRef.current) {
+        const decorrido = Math.max(0, Math.round((Date.now() + offsetServidorRef.current - sessaoInicioRef.current) / 1000))
+        persistirTempoUsado(decorrido)
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emAndamento?.tentativa.id])
 
   async function finalizar() {
-    if (!emAndamento) return
-    if (intervalRef.current) window.clearInterval(intervalRef.current)
+    if (!emAndamento || flushandoRef.current) return
+    flushandoRef.current = true
     const { tentativa } = emAndamento
     const { data: respostas } = await supabase.from('respostas').select('correta').eq('tentativa_id', tentativa.id)
     const acertos = respostas?.filter((r: any) => r.correta).length || 0
     const erros = (respostas?.length || 0) - acertos
-    const tempoTotal = Math.round((Date.now() - new Date(tentativa.iniciado_em).getTime()) / 1000)
+
+    const decorrido = Math.max(0, Math.round((Date.now() + offsetServidorRef.current - sessaoInicioRef.current) / 1000))
+    const tempoTotal = Math.min(duracaoSegundosRef.current, acumuladoRef.current + decorrido)
 
     await supabase.from('simulado_tentativas').update({
-      finalizado_em: new Date().toISOString(), tempo_total_segundos: tempoTotal, acertos, erros,
+      finalizado_em: new Date().toISOString(), tempo_total_segundos: tempoTotal, tempo_usado_segundos: tempoTotal, acertos, erros,
     }).eq('id', tentativa.id)
 
     setEmAndamento(null)
+    flushandoRef.current = false
     carregar()
+  }
+
+  async function abrirDetalhes(tentativaId: string) {
+    if (verDetalhesId === tentativaId) { setVerDetalhesId(null); return }
+    setVerDetalhesId(tentativaId)
+    if (!detalhes[tentativaId]) {
+      const { data } = await supabase.from('respostas').select('questao_id, resposta_dada, correta, questoes(*, materias(nome))').eq('tentativa_id', tentativaId)
+      setDetalhes((prev) => ({ ...prev, [tentativaId]: (data as any) || [] }))
+    }
+  }
+
+  function handleRespondida(questaoId: string) {
+    setRespondidas((prev) => new Set(prev).add(questaoId))
   }
 
   if (possuiTurma === false) return <SemTurma />
 
   if (emAndamento) {
     const { simulado, questoes } = emAndamento
+
+    const blocos: { materiaNome: string; itens: { questao: QuestaoComExtra; indiceGlobal: number }[] }[] = []
+    questoes.forEach((q, i) => {
+      const nome = q.materias?.nome || 'Geral'
+      const ultimoBloco = blocos[blocos.length - 1]
+      if (!ultimoBloco || ultimoBloco.materiaNome !== nome) {
+        blocos.push({ materiaNome: nome, itens: [{ questao: q, indiceGlobal: i }] })
+      } else {
+        ultimoBloco.itens.push({ questao: q, indiceGlobal: i })
+      }
+    })
+
     return (
       <div className="max-w-2xl">
-        <div className="flex items-center justify-between mb-4 sticky top-0 bg-paper py-2 z-10">
-          <h1 className="font-serif text-xl text-ink">{simulado.titulo}</h1>
-          <div className={`font-mono text-lg px-3 py-1 rounded ${tempoRestante < 60 ? 'bg-erro/10 text-erro' : 'bg-ink/5 text-ink'}`}>
-            {formatarTempo(tempoRestante)}
+        <div className="sticky top-0 bg-paper py-2 z-10 space-y-3">
+          <div className="flex items-center justify-between">
+            <h1 className="font-serif text-xl text-ink">{simulado.titulo}</h1>
+            <div className={`font-mono text-lg px-3 py-1 rounded ${tempoRestante < 60 ? 'bg-erro/10 text-erro' : 'bg-ink/5 text-ink'}`}>
+              {formatarTempo(tempoRestante)}
+            </div>
           </div>
+          <div className="flex flex-wrap gap-1.5 bg-white border border-ink/10 rounded-lg p-3">
+            {questoes.map((q, i) => (
+              <a
+                key={q.id}
+                href={`#questao-${i}`}
+                className={`w-7 h-7 flex items-center justify-center rounded text-xs font-medium transition-colors ${
+                  respondidas.has(q.id) ? 'bg-acerto text-white' : 'bg-ink/10 text-ink/50'
+                }`}
+              >
+                {i + 1}
+              </a>
+            ))}
+          </div>
+          <p className="text-xs text-ink/40 text-right">{respondidas.size} de {questoes.length} respondidas · o cronômetro pausa se você sair desta tela</p>
         </div>
-        <div className="space-y-4">
-          {questoes.map((q, i) => (
-            <div key={q.id}>
-              <p className="text-xs text-ink/40 mb-1">Questão {i + 1} de {questoes.length}</p>
-              <QuestionCard questao={q} turmaId={simulado.turma_id} tentativaId={emAndamento.tentativa.id} textoBase={q.grupos_questoes?.texto_base} />
+
+        <div className="space-y-6 mt-4">
+          {blocos.map((bloco, bi) => (
+            <div key={bi}>
+              <h2 className="text-center font-serif text-sm tracking-widest uppercase text-ink/50 border-y border-ink/10 py-2 mb-4">
+                {bloco.materiaNome}
+              </h2>
+              <div className="space-y-4">
+                {bloco.itens.map(({ questao: q, indiceGlobal: i }) => (
+                  <div key={q.id} id={`questao-${i}`} className="scroll-mt-40">
+                    <p className="text-xs text-ink/40 mb-1">Questão {i + 1} de {questoes.length}</p>
+                    <QuestionCard
+                      questao={q}
+                      turmaId={simulado.turma_id}
+                      tentativaId={emAndamento.tentativa.id}
+                      textoBase={q.grupos_questoes?.texto_base}
+                      onRespondida={() => handleRespondida(q.id)}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -133,23 +257,50 @@ export default function SimuladosAluno() {
         {simulados.map((s) => {
           const tentativa = tentativas[s.id]
           const finalizado = tentativa?.finalizado_em
+          const detalheAberto = verDetalhesId === tentativa?.id
           return (
-            <div key={s.id} className="bg-white border border-ink/10 rounded px-4 py-3 flex items-center justify-between">
-              <div>
-                <p className="text-ink font-medium text-sm">{s.titulo} <span className="text-ink/40 font-normal">— {s.turmas?.nome}</span></p>
-                <p className="text-ink/50 text-xs">{s.tempo_limite_minutos} minutos</p>
-                {finalizado && (
-                  <p className="text-xs mt-1">
-                    <span className="text-acerto">{tentativa.acertos} acertos</span> · <span className="text-erro">{tentativa.erros} erros</span> · tempo: {formatarTempo(tentativa.tempo_total_segundos || 0)}
-                  </p>
+            <div key={s.id} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft overflow-hidden">
+              <div className="px-4 py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-ink font-medium text-sm truncate">{s.titulo} <span className="text-ink/40 font-normal">— {s.turmas?.nome}</span></p>
+                  <p className="text-ink/50 text-xs">{s.tempo_limite_minutos} minutos</p>
+                  {finalizado && (
+                    <p className="text-xs mt-1">
+                      <span className="text-acerto">{tentativa.acertos} acertos</span> · <span className="text-erro">{tentativa.erros} erros</span> · tempo: {formatarTempo(tentativa.tempo_total_segundos || 0)}
+                    </p>
+                  )}
+                  {!finalizado && tentativa && tentativa.tempo_usado_segundos > 0 && (
+                    <p className="text-gold text-xs mt-1">Pausado — {formatarTempo(s.tempo_limite_minutos * 60 - tentativa.tempo_usado_segundos)} restantes</p>
+                  )}
+                </div>
+                {finalizado ? (
+                  <button onClick={() => abrirDetalhes(tentativa.id)} className="text-gold text-sm hover:underline shrink-0">
+                    {detalheAberto ? 'Fechar' : 'Ver detalhes'}
+                  </button>
+                ) : (
+                  <button onClick={() => iniciarOuContinuar(s)} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm hover:bg-ink-light transition-colors shadow-soft shrink-0">
+                    {tentativa ? 'Continuar' : 'Iniciar'}
+                  </button>
                 )}
               </div>
-              {finalizado ? (
-                <span className="text-ink/40 text-sm">Concluído</span>
-              ) : (
-                <button onClick={() => iniciarOuContinuar(s)} className="bg-ink text-white px-4 py-2 rounded text-sm hover:bg-ink-light">
-                  {tentativa ? 'Continuar' : 'Iniciar'}
-                </button>
+
+              {detalheAberto && (
+                <div className="border-t border-ink/10 bg-paper/50 px-4 py-4 space-y-2">
+                  {(detalhes[tentativa.id] || []).map((r) => (
+                    <div key={r.questao_id} className={`rounded px-3 py-2 text-sm border ${r.correta ? 'border-acerto/30 bg-acerto/5' : 'border-erro/30 bg-erro/5'}`}>
+                      <div className="flex items-center gap-2 mb-1 text-xs">
+                        <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{r.questoes.materias?.nome}</span>
+                        <span className={r.correta ? 'text-acerto font-medium' : 'text-erro font-medium'}>{r.correta ? 'Acertou' : 'Errou'}</span>
+                      </div>
+                      <p className="text-ink">{r.questoes.enunciado}</p>
+                      <p className="text-ink/60 text-xs mt-1">
+                        Sua resposta: <strong>{r.resposta_dada}</strong>
+                        {!r.correta && <> · Correta: <strong>{r.questoes.resposta_correta}</strong></>}
+                      </p>
+                    </div>
+                  ))}
+                  {!detalhes[tentativa.id] && <p className="text-ink/40 text-sm">Carregando…</p>}
+                </div>
               )}
             </div>
           )

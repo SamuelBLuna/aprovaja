@@ -31,6 +31,15 @@ function enumerarDatas(inicio: string, fim: string): string[] {
   return datas
 }
 
+function embaralhar<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 export default function Cronograma() {
   const { profile } = useAuth()
   const [turmas, setTurmas] = useState<Turma[]>([])
@@ -55,8 +64,13 @@ export default function Cronograma() {
   const [descricao, setDescricao] = useState('')
   const [materiaId, setMateriaId] = useState('')
   const [topicoId, setTopicoId] = useState('')
-  const [questoesSelecionadas, setQuestoesSelecionadas] = useState<Set<string>>(new Set())
   const [showGerenciar, setShowGerenciar] = useState(false)
+
+  // seleção de questões (manual ou sorteio) — igual ao padrão usado em Simulados
+  const [modoSelecao, setModoSelecao] = useState<'manual' | 'aleatorio'>('manual')
+  const [questoesSelecionadas, setQuestoesSelecionadas] = useState<Map<string, Questao>>(new Map())
+  const [topicoAleatorio, setTopicoAleatorio] = useState('')
+  const [quantidadeAleatoria, setQuantidadeAleatoria] = useState(5)
 
   useEffect(() => {
     supabase.from('turmas').select('*').order('created_at', { ascending: false }).then(({ data }) => {
@@ -109,18 +123,24 @@ export default function Cronograma() {
 
   function resetForm() {
     setDataInicioForm(selectedDate); setDataFimForm(selectedDate)
-    setDescricao(''); setMateriaId(''); setTopicoId(''); setQuestoesSelecionadas(new Set())
+    setDescricao(''); setMateriaId(''); setTopicoId(''); setQuestoesSelecionadas(new Map())
+    setModoSelecao('manual'); setTopicoAleatorio(''); setQuantidadeAleatoria(5)
     setEditandoId(null)
   }
 
-  function abrirEdicao(item: ItemComMateria) {
+  async function abrirEdicao(item: ItemComMateria) {
     setEditandoId(item.id)
     setDataInicioForm(item.data_inicio)
     setDataFimForm(item.data_fim)
     setDescricao(item.descricao || '')
     setMateriaId(item.materia_id || '')
     setTopicoId(item.topico_id || '')
-    setQuestoesSelecionadas(new Set())
+    setModoSelecao('manual'); setTopicoAleatorio(''); setQuantidadeAleatoria(5)
+
+    const { data } = await supabase.from('cronograma_questoes').select('questoes(*)').eq('cronograma_id', item.id)
+    const atuais = (data || []).map((r: any) => r.questoes).filter(Boolean) as Questao[]
+    setQuestoesSelecionadas(new Map(atuais.map((q) => [q.id, q])))
+
     setShowForm(true)
   }
 
@@ -139,7 +159,14 @@ export default function Cronograma() {
         data_inicio: dataInicioForm, data_fim: dataFimForm, descricao: descricao.trim() || null,
         materia_id: materiaId, topico_id: topicoId || null,
       }).eq('id', editandoId)
-      if (!error) { resetForm(); setShowForm(false); carregarItens() }
+      if (error) { alert('Erro ao salvar: ' + error.message); return }
+
+      await supabase.from('cronograma_questoes').delete().eq('cronograma_id', editandoId)
+      if (questoesSelecionadas.size > 0) {
+        const rows = Array.from(questoesSelecionadas.keys()).map((qId) => ({ cronograma_id: editandoId, questao_id: qId }))
+        await supabase.from('cronograma_questoes').insert(rows)
+      }
+      resetForm(); setShowForm(false); carregarItens()
       return
     }
 
@@ -151,7 +178,7 @@ export default function Cronograma() {
     if (!error && data) {
       const cronogramaId = (data as CronogramaItem).id
       if (questoesSelecionadas.size > 0) {
-        const rows = Array.from(questoesSelecionadas).map((qId) => ({ cronograma_id: cronogramaId, questao_id: qId }))
+        const rows = Array.from(questoesSelecionadas.keys()).map((qId) => ({ cronograma_id: cronogramaId, questao_id: qId }))
         await supabase.from('cronograma_questoes').insert(rows)
       }
       resetForm()
@@ -166,10 +193,30 @@ export default function Cronograma() {
     carregarItens()
   }
 
-  function toggleQuestao(id: string) {
+  function toggleQuestaoManual(q: Questao) {
     setQuestoesSelecionadas((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
+      const next = new Map(prev)
+      if (next.has(q.id)) next.delete(q.id); else next.set(q.id, q)
+      return next
+    })
+  }
+
+  function removerSelecionada(id: string) {
+    setQuestoesSelecionadas((prev) => {
+      const next = new Map(prev)
+      next.delete(id)
+      return next
+    })
+  }
+
+  async function sortear() {
+    let query = supabase.from('questoes').select('*').eq('materia_id', materiaId)
+    if (topicoAleatorio) query = query.eq('topico_id', topicoAleatorio)
+    const { data } = await query
+    const pool = embaralhar((data as Questao[]) || []).slice(0, quantidadeAleatoria)
+    setQuestoesSelecionadas((prev) => {
+      const next = new Map(prev)
+      pool.forEach((q) => next.set(q.id, q))
       return next
     })
   }
@@ -194,30 +241,30 @@ export default function Cronograma() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-        <h1 className="font-serif text-2xl text-ink">Cronograma</h1>
-        <button onClick={() => setShowNovaTurma((v) => !v)} className="border border-ink/20 text-ink px-3 py-2 rounded text-sm hover:bg-ink/5">
+        <h1 className="font-serif text-[26px] text-ink">Cronograma</h1>
+        <button onClick={() => setShowNovaTurma((v) => !v)} className="border border-ink/15 text-ink px-3 py-2 rounded-lg text-sm hover:bg-ink/5 transition-colors bg-white">
           {showNovaTurma ? 'Cancelar' : '+ Nova turma'}
         </button>
       </div>
 
       {showNovaTurma && (
-        <form onSubmit={criarTurma} className="bg-white border border-ink/10 rounded p-5 mb-6 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+        <form onSubmit={criarTurma} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 mb-6 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
           <div className="sm:col-span-2">
             <label className="block text-xs text-ink/60 mb-1">Nome da turma</label>
             <input required value={nomeTurma} onChange={(e) => setNomeTurma(e.target.value)} placeholder="Ex: TRT 2ª Região 2026"
-              className="w-full border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+              className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
           </div>
           <div>
             <label className="block text-xs text-ink/60 mb-1">Início</label>
             <input required type="date" value={dataInicioTurma} onChange={(e) => setDataInicioTurma(e.target.value)}
-              className="w-full border border-ink/20 rounded px-3 py-2 text-sm" />
+              className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-xs text-ink/60 mb-1">Fim (data da prova)</label>
             <input required type="date" value={dataFimTurma} onChange={(e) => setDataFimTurma(e.target.value)}
-              className="w-full border border-ink/20 rounded px-3 py-2 text-sm" />
+              className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm" />
           </div>
-          <button className="sm:col-span-4 bg-ink text-white px-4 py-2 rounded text-sm font-medium hover:bg-ink-light">Criar turma</button>
+          <button className="sm:col-span-4 bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft">Criar turma</button>
         </form>
       )}
 
@@ -225,8 +272,8 @@ export default function Cronograma() {
         <p className="text-ink/60 text-sm">Crie sua primeira turma para montar o cronograma.</p>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-3 mb-3 bg-white border border-ink/10 rounded px-4 py-3">
-            <select value={turmaId} onChange={(e) => setTurmaId(e.target.value)} className="border border-ink/20 rounded px-3 py-1.5 text-sm bg-white">
+          <div className="flex flex-wrap items-center gap-3 mb-3 bg-white border border-ink/[0.07] rounded-xl shadow-soft px-4 py-3">
+            <select value={turmaId} onChange={(e) => setTurmaId(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-1.5 text-sm bg-white">
               {turmas.map((t) => <option key={t.id} value={t.id}>{t.nome}{t.status === 'encerrada' ? ' (encerrada)' : ''}</option>)}
             </select>
             {turmaAtual && (
@@ -250,7 +297,6 @@ export default function Cronograma() {
             </div>
           )}
 
-
           {showGerenciar && turmaAtual && (
             <GerenciarTurma
               turma={turmaAtual}
@@ -263,7 +309,7 @@ export default function Cronograma() {
           <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
             <MonthCalendar selectedDate={selectedDate} onSelectDate={setSelectedDate} markedDates={datasComItens} />
 
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-serif text-lg text-ink">
                   {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
@@ -278,7 +324,7 @@ export default function Cronograma() {
               </div>
 
               {showForm && (
-                <form onSubmit={salvarItem} className="bg-white border border-ink/10 rounded p-4 mb-4 space-y-3">
+                <form onSubmit={salvarItem} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-4 mb-4 space-y-3">
                   <p className="text-sm text-ink/60">
                     {editandoId ? 'Editando atividade' : 'Defina o período em que os alunos vão estudar isso — pode ser um único dia ou várias semanas.'}
                   </p>
@@ -286,43 +332,73 @@ export default function Cronograma() {
                     <div>
                       <label className="block text-xs text-ink/60 mb-1">De</label>
                       <input required type="date" value={dataInicioForm} onChange={(e) => setDataInicioForm(e.target.value)}
-                        className="w-full border border-ink/20 rounded px-3 py-2 text-sm" />
+                        className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm" />
                     </div>
                     <div>
                       <label className="block text-xs text-ink/60 mb-1">Até</label>
                       <input required type="date" value={dataFimForm} onChange={(e) => setDataFimForm(e.target.value)}
-                        className="w-full border border-ink/20 rounded px-3 py-2 text-sm" />
+                        className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <select required value={materiaId} onChange={(e) => setMateriaId(e.target.value)} className="border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+                    <select required value={materiaId} onChange={(e) => setMateriaId(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
                       <option value="">Matéria *</option>
                       {materias.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
                     </select>
-                    <select value={topicoId} onChange={(e) => setTopicoId(e.target.value)} disabled={!materiaId} className="border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+                    <select value={topicoId} onChange={(e) => setTopicoId(e.target.value)} disabled={!materiaId} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
                       <option value="">Tópico (opcional)</option>
                       {topicos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
                     </select>
                   </div>
                   <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={2} placeholder="Descrição / observações (opcional)"
-                    className="w-full border border-ink/20 rounded px-3 py-2 text-sm focus:border-gold" />
+                    className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
 
-                  {!editandoId && materiaId && questoesDisponiveis.length > 0 && (
-                    <div>
-                      <p className="text-xs text-ink/60 mb-1">Vincular questões desta matéria (opcional):</p>
-                      <div className="max-h-32 overflow-y-auto border border-ink/10 rounded p-2 space-y-1">
-                        {questoesDisponiveis.map((q) => (
-                          <label key={q.id} className="flex items-start gap-2 text-xs">
-                            <input type="checkbox" checked={questoesSelecionadas.has(q.id)} onChange={() => toggleQuestao(q.id)} className="mt-0.5" />
-                            <span className="text-ink/80">{q.enunciado.slice(0, 90)}{q.enunciado.length > 90 ? '…' : ''}</span>
-                          </label>
-                        ))}
+                  {materiaId && (
+                    <div className="border-t border-ink/10 pt-3">
+                      <p className="text-xs text-ink/60 mb-2">Questões vinculadas a esta atividade (opcional):</p>
+
+                      {questoesSelecionadas.size > 0 && (
+                        <div className="bg-paper/60 border border-ink/10 rounded p-2 mb-2 max-h-32 overflow-y-auto space-y-1">
+                          {Array.from(questoesSelecionadas.values()).map((q) => (
+                            <div key={q.id} className="flex items-start justify-between gap-2 text-xs bg-white border border-ink/10 rounded px-2 py-1.5">
+                              <span className="text-ink/80">{q.enunciado.slice(0, 90)}{q.enunciado.length > 90 ? '…' : ''}</span>
+                              <button type="button" onClick={() => removerSelecionada(q.id)} className="text-erro shrink-0 hover:underline">remover</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex gap-3 text-xs mb-2">
+                        <button type="button" onClick={() => setModoSelecao('manual')} className={modoSelecao === 'manual' ? 'text-ink font-medium underline' : 'text-ink/50'}>Escolher manualmente</button>
+                        <button type="button" onClick={() => setModoSelecao('aleatorio')} className={modoSelecao === 'aleatorio' ? 'text-ink font-medium underline' : 'text-ink/50'}>Sortear questões</button>
                       </div>
+
+                      {modoSelecao === 'manual' ? (
+                        <div className="max-h-32 overflow-y-auto border border-ink/10 rounded p-2 space-y-1">
+                          {questoesDisponiveis.map((q) => (
+                            <label key={q.id} className="flex items-start gap-2 text-xs">
+                              <input type="checkbox" checked={questoesSelecionadas.has(q.id)} onChange={() => toggleQuestaoManual(q)} className="mt-0.5" />
+                              <span className="text-ink/80">{q.enunciado.slice(0, 90)}{q.enunciado.length > 90 ? '…' : ''}</span>
+                            </label>
+                          ))}
+                          {questoesDisponiveis.length === 0 && <p className="text-ink/40 text-xs">Nenhuma questão nesta matéria ainda.</p>}
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap items-end gap-2">
+                          <select value={topicoAleatorio} onChange={(e) => setTopicoAleatorio(e.target.value)} className="border border-ink/15 rounded-lg px-2 py-1.5 text-xs bg-white">
+                            <option value="">Qualquer tópico</option>
+                            {topicos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                          </select>
+                          <input type="number" min={1} value={quantidadeAleatoria} onChange={(e) => setQuantidadeAleatoria(Number(e.target.value))}
+                            className="w-16 border border-ink/15 rounded-lg px-2 py-1.5 text-xs" />
+                          <button type="button" onClick={sortear} className="border border-ink/15 rounded-lg px-3 py-1.5 text-xs hover:bg-ink/5">Sortear</button>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   <div className="flex gap-2">
-                    <button className="bg-ink text-white px-4 py-2 rounded text-sm hover:bg-ink-light">{editandoId ? 'Salvar alterações' : 'Salvar no cronograma'}</button>
+                    <button className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm hover:bg-ink-light transition-colors shadow-soft">{editandoId ? 'Salvar alterações' : 'Salvar no cronograma'}</button>
                     <button type="button" onClick={() => { setShowForm(false); resetForm() }} className="text-ink/60 text-sm hover:underline">Cancelar</button>
                   </div>
                 </form>
@@ -330,11 +406,11 @@ export default function Cronograma() {
 
               <div className="space-y-2">
                 {itensDoDia.map((item) => (
-                  <div key={item.id} className="bg-white border border-ink/10 rounded px-4 py-3 flex justify-between items-start">
-                    <div>
+                  <div key={item.id} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft px-4 py-3 flex justify-between items-start gap-3">
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.materias?.cor || '#1B2A4A' }} />
-                        <p className="text-ink font-medium text-sm">{item.materias?.nome || 'Sem matéria'}{item.topicos?.nome ? ` — ${item.topicos.nome}` : ''}</p>
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.materias?.cor || '#1B2A4A' }} />
+                        <p className="text-ink font-medium text-sm truncate">{item.materias?.nome || 'Sem matéria'}{item.topicos?.nome ? ` — ${item.topicos.nome}` : ''}</p>
                       </div>
                       {item.descricao && <p className="text-ink/60 text-sm mt-1 ml-4">{item.descricao}</p>}
                       {item.data_inicio !== item.data_fim && (

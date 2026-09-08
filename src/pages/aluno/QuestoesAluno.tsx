@@ -121,12 +121,12 @@ export default function QuestoesAluno() {
       <h1 className="font-serif text-2xl text-ink mb-1">Questões</h1>
       <p className="text-ink/60 text-sm mb-6">Escolha a matéria (e opcionalmente o tópico) para praticar à vontade.</p>
 
-      <div className="bg-white border border-ink/10 rounded p-5 max-w-md space-y-3">
-        <select value={materiaId} onChange={(e) => setMateriaId(e.target.value)} className="w-full border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+      <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 max-w-md space-y-3">
+        <select value={materiaId} onChange={(e) => setMateriaId(e.target.value)} className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
           <option value="">Selecione a matéria</option>
           {materias.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
         </select>
-        <select value={topicoId} onChange={(e) => setTopicoId(e.target.value)} disabled={!materiaId} className="w-full border border-ink/20 rounded px-3 py-2 text-sm bg-white">
+        <select value={topicoId} onChange={(e) => setTopicoId(e.target.value)} disabled={!materiaId} className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
           <option value="">Todos os tópicos</option>
           {topicos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
         </select>

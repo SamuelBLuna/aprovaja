@@ -117,8 +117,8 @@ export default function Alunos() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-        <h1 className="font-serif text-2xl text-ink">Alunos</h1>
-        <select value={turmaId} onChange={(e) => setTurmaId(e.target.value)} className="border border-ink/20 rounded px-3 py-1.5 text-sm bg-white">
+        <h1 className="font-serif text-[26px] text-ink">Alunos</h1>
+        <select value={turmaId} onChange={(e) => setTurmaId(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-1.5 text-sm bg-white">
           {turmas.map((t) => <option key={t.id} value={t.id}>{t.nome}{t.status === 'encerrada' ? ' (encerrada)' : ''}</option>)}
         </select>
       </div>
@@ -134,7 +134,7 @@ export default function Alunos() {
             const materias = desempenhoPorAluno[a.aluno_id] || []
             const cronograma = cronogramaPorAluno[a.aluno_id]
             return (
-              <div key={a.aluno_id} className="bg-white border border-ink/10 rounded-lg overflow-hidden">
+              <div key={a.aluno_id} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft overflow-hidden">
                 <div className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer" onClick={() => abrirDetalhe(a.aluno_id)}>
                   <div className="min-w-0">
                     <p className="text-ink font-medium text-sm truncate">{a.nome}</p>
@@ -165,7 +165,7 @@ export default function Alunos() {
                       <p className="text-ink/50 text-sm">Carregando detalhes…</p>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-white border border-ink/10 rounded p-4">
+                        <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-4">
                           <p className="text-sm font-medium text-ink mb-3">Desempenho por matéria</p>
                           {materias.length === 0 ? (
                             <p className="text-ink/40 text-sm">Nenhuma questão respondida ainda.</p>
@@ -185,7 +185,7 @@ export default function Alunos() {
                           )}
                         </div>
 
-                        <div className="bg-white border border-ink/10 rounded p-4">
+                        <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-4">
                           <p className="text-sm font-medium text-ink mb-3">Cronograma</p>
                           {cronograma && cronograma.total > 0 ? (
                             <>

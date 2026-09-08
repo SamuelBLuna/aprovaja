@@ -1,13 +1,12 @@
 import { useState } from 'react'
 
 interface MonthCalendarProps {
-  selectedDate: string // YYYY-MM-DD
+  selectedDate: string
   onSelectDate: (date: string) => void
   markedDates?: Set<string>
-  compact?: boolean
 }
 
-const DIAS_SEMANA = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
+const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
@@ -22,7 +21,7 @@ function hojeISO() {
   return toISO(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
-export default function MonthCalendar({ selectedDate, onSelectDate, markedDates, compact }: MonthCalendarProps) {
+export default function MonthCalendar({ selectedDate, onSelectDate, markedDates }: MonthCalendarProps) {
   const initial = selectedDate ? new Date(selectedDate + 'T00:00:00') : new Date()
   const [viewYear, setViewYear] = useState(initial.getFullYear())
   const [viewMonth, setViewMonth] = useState(initial.getMonth())
@@ -52,20 +51,18 @@ export default function MonthCalendar({ selectedDate, onSelectDate, markedDates,
     onSelectDate(todayISO)
   }
 
-  const cellSize = compact ? 'aspect-square text-sm' : 'aspect-square text-base'
-
   return (
-    <div className="border border-ink/10 rounded-lg bg-white p-5 shadow-sm">
+    <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5">
       <div className="flex items-center justify-between mb-5">
-        <button onClick={() => changeMonth(-1)} className="w-9 h-9 rounded-full hover:bg-ink/5 text-ink text-lg" aria-label="Mês anterior">‹</button>
+        <button onClick={() => changeMonth(-1)} className="w-8 h-8 rounded-full hover:bg-ink/5 text-ink/60 hover:text-ink transition-colors text-base" aria-label="Mês anterior">‹</button>
         <div className="text-center">
           <p className="font-serif text-xl text-ink leading-tight">{MESES[viewMonth]}</p>
-          <p className="text-ink/40 text-sm">{viewYear}</p>
+          <p className="text-ink/35 text-xs tracking-wide">{viewYear}</p>
         </div>
-        <button onClick={() => changeMonth(1)} className="w-9 h-9 rounded-full hover:bg-ink/5 text-ink text-lg" aria-label="Próximo mês">›</button>
+        <button onClick={() => changeMonth(1)} className="w-8 h-8 rounded-full hover:bg-ink/5 text-ink/60 hover:text-ink transition-colors text-base" aria-label="Próximo mês">›</button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center text-[11px] tracking-wide text-ink/40 mb-2">
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium tracking-wider text-ink/30 mb-2">
         {DIAS_SEMANA.map((d, i) => <div key={i}>{d}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-1.5">
@@ -79,19 +76,19 @@ export default function MonthCalendar({ selectedDate, onSelectDate, markedDates,
             <button
               key={idx}
               onClick={() => onSelectDate(iso)}
-              className={`relative ${cellSize} rounded-md flex items-center justify-center font-medium transition-colors
-                ${isSelected ? 'bg-ink text-white shadow' : isToday ? 'bg-gold/15 text-ink ring-1 ring-gold/40' : 'text-ink hover:bg-ink/5'}`}
+              className={`relative aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-150
+                ${isSelected ? 'bg-ink text-white shadow-soft scale-105' : isToday ? 'bg-gold/10 text-ink ring-1 ring-gold/40' : 'text-ink/80 hover:bg-ink/[0.05]'}`}
             >
               {day}
               {hasMark && (
-                <span className={`absolute bottom-1.5 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-gold-light' : 'bg-gold'}`} />
+                <span className={`absolute bottom-1 w-1 h-1 rounded-full ${isSelected ? 'bg-gold-light' : 'bg-gold'}`} />
               )}
             </button>
           )
         })}
       </div>
 
-      <button onClick={irParaHoje} className="mt-5 w-full text-center text-sm text-gold hover:text-gold-light font-medium py-1.5 border-t border-ink/10 pt-3">
+      <button onClick={irParaHoje} className="mt-5 w-full text-center text-xs font-medium text-gold hover:text-gold-dark transition-colors py-2 border-t border-ink/[0.06] pt-3">
         Ir para hoje
       </button>
     </div>

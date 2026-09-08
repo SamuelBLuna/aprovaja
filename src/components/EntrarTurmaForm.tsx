@@ -44,9 +44,9 @@ export default function EntrarTurmaForm({ onSuccess, titulo }: EntrarTurmaFormPr
           value={codigo}
           onChange={(e) => setCodigo(e.target.value)}
           placeholder="Código da turma (ex: TRT2024)"
-          className="flex-1 border border-ink/20 rounded px-3 py-2 text-sm uppercase focus:border-gold"
+          className="flex-1 border border-ink/15 rounded-lg px-3 py-2 text-sm uppercase focus:border-gold"
         />
-        <button disabled={loading} className="bg-ink text-white px-4 py-2 rounded text-sm font-medium hover:bg-ink-light disabled:opacity-50 shrink-0">
+        <button disabled={loading} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft disabled:opacity-50 shrink-0">
           {loading ? 'Entrando…' : 'Entrar'}
         </button>
       </div>

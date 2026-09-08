@@ -26,6 +26,14 @@ interface UltimoSimulado {
   finalizadoEm: string
 }
 
+interface SimuladoPendente {
+  id: string
+  titulo: string
+  tempoLimiteMinutos: number
+  emAndamento: boolean
+  dataLimite: string | null
+}
+
 export default function DashboardAluno() {
   const { profile } = useAuth()
   const possuiTurma = usePossuiTurma()
@@ -47,6 +55,7 @@ export default function DashboardAluno() {
 
   const [indicadores, setIndicadores] = useState<Indicadores>({ questoesRespondidas: 0, taxaAcerto: 0, diasConsecutivos: 0, questoesParaRevisao: 0 })
   const [ultimoSimulado, setUltimoSimulado] = useState<UltimoSimulado | null>(null)
+  const [simuladosPendentes, setSimuladosPendentes] = useState<SimuladoPendente[]>([])
 
   useEffect(() => {
     if (!profile) return
@@ -57,9 +66,31 @@ export default function DashboardAluno() {
     })
     carregarIndicadores()
     carregarUltimoSimulado()
+    carregarSimuladosPendentes()
   }, [profile])
 
   useEffect(() => { if (turmaId && profile) carregarItens() }, [turmaId, profile])
+
+  async function carregarSimuladosPendentes() {
+    if (!profile) return
+    const { data: sims } = await supabase.from('simulados').select('id, titulo, tempo_limite_minutos, data_limite')
+    const { data: tents } = await supabase.from('simulado_tentativas').select('simulado_id, finalizado_em').eq('aluno_id', profile.id)
+    const tentativasPorSimulado = new Map((tents || []).map((t: any) => [t.simulado_id, t]))
+    const agora = new Date()
+
+    const pendentes = (sims || [])
+      .filter((s: any) => {
+        const tentativa = tentativasPorSimulado.get(s.id)
+        if (tentativa?.finalizado_em) return false // já concluído
+        if (s.data_limite && new Date(s.data_limite) < agora) return false // prazo já passou
+        return true
+      })
+      .map((s: any) => ({
+        id: s.id, titulo: s.titulo, tempoLimiteMinutos: s.tempo_limite_minutos, dataLimite: s.data_limite,
+        emAndamento: !!tentativasPorSimulado.get(s.id),
+      }))
+    setSimuladosPendentes(pendentes)
+  }
 
   async function carregarItens() {
     if (!profile) return
@@ -222,19 +253,44 @@ export default function DashboardAluno() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-        <h1 className="font-serif text-2xl text-ink">Olá, {profile?.nome.split(' ')[0]}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-7">
+        <div>
+          <h1 className="font-serif text-[26px] leading-tight text-ink">Olá, {profile?.nome.split(' ')[0]}</h1>
+          <p className="text-ink/45 text-sm mt-1">Vamos ver o que tem pra hoje.</p>
+        </div>
         {turmas.length > 1 && (
-          <select value={turmaId} onChange={(e) => setTurmaId(e.target.value)} className="border border-ink/20 rounded px-3 py-1.5 text-sm bg-white">
+          <select value={turmaId} onChange={(e) => setTurmaId(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white shadow-soft">
             {turmas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
           </select>
         )}
       </div>
 
+      {simuladosPendentes.length > 0 && (
+        <div className="space-y-2 mb-6">
+          {simuladosPendentes.map((s) => (
+            <Link
+              key={s.id}
+              to="/aluno/simulados"
+              className="flex items-center justify-between gap-3 bg-gold/10 border border-gold/25 rounded-xl px-4 py-3.5 hover:bg-gold/[0.14] hover:shadow-soft transition-all"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink">
+                  {s.emAndamento ? '⏸ Você tem um simulado pausado' : '📝 Você tem um simulado pra fazer'}: {s.titulo}
+                </p>
+                <p className="text-xs text-ink/50 mt-0.5">
+                  {s.tempoLimiteMinutos} minutos{s.dataLimite ? ` · disponível até ${new Date(s.dataLimite).toLocaleString('pt-BR')}` : ''}
+                </p>
+              </div>
+              <span className="text-gold-dark text-sm font-medium shrink-0">{s.emAndamento ? 'Continuar →' : 'Fazer agora →'}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 mb-6">
         <MonthCalendar selectedDate={selectedDate} onSelectDate={setSelectedDate} markedDates={datasComItens} />
 
-        <div className="bg-white border border-ink/10 rounded-lg shadow-sm p-5 flex flex-col min-w-0">
+        <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 flex flex-col min-w-0">
           <h2 className="font-serif text-lg text-ink mb-1">
             Cronograma de {selectedDate === isoHoje() ? 'hoje' : new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
           </h2>
@@ -319,7 +375,7 @@ export default function DashboardAluno() {
             <button
               onClick={abrirQuestoesDoDia}
               disabled={carregandoQuestoesDoDia}
-              className="mt-5 flex items-center justify-between bg-ink text-white rounded-lg px-4 py-3 hover:bg-ink-light transition-colors disabled:opacity-60"
+              className="mt-5 flex items-center justify-between bg-ink-gradient text-white rounded-xl px-4 py-3.5 hover:shadow-lift transition-all disabled:opacity-60"
             >
               <div className="text-left">
                 <p className="text-sm font-medium">{mostrarQuestoesDoDia ? 'Fechar questões do dia' : 'Ir para Questões'}</p>
@@ -339,7 +395,7 @@ export default function DashboardAluno() {
         <IndicadorCard icon={ListChecks} label="Questões respondidas" value={indicadores.questoesRespondidas} />
         <IndicadorCard icon={Target} label="Taxa de acertos" value={`${indicadores.taxaAcerto}%`} cor={indicadores.taxaAcerto >= 70 ? 'text-acerto' : indicadores.taxaAcerto >= 50 ? 'text-gold' : 'text-erro'} />
         <IndicadorCard icon={Flame} label="Dias consecutivos" value={indicadores.diasConsecutivos} cor="text-gold" />
-        <Link to="/aluno/desempenho" className="bg-white border border-ink/10 rounded-lg p-4 shadow-sm hover:border-gold/40 hover:shadow-md transition-all">
+        <Link to="/aluno/desempenho" className="bg-white border border-ink/[0.07] rounded-xl p-4 shadow-soft hover:border-gold/30 hover:shadow-card transition-all">
           <div className="flex items-center justify-between mb-1">
             <p className="text-ink/60 text-xs">Questões p/ revisão</p>
             <AlertTriangle className={`w-4 h-4 ${indicadores.questoesParaRevisao > 0 ? 'text-erro' : 'text-ink/20'}`} />
@@ -349,7 +405,7 @@ export default function DashboardAluno() {
       </div>
 
       {ultimoSimulado && (
-        <Link to="/aluno/simulados" className="mt-4 flex items-center justify-between bg-white border border-ink/10 rounded-lg p-4 shadow-sm hover:border-gold/40 transition-colors">
+        <Link to="/aluno/simulados" className="mt-4 flex items-center justify-between bg-white border border-ink/[0.07] rounded-xl p-4 shadow-soft hover:border-gold/30 transition-colors">
           <div>
             <p className="text-ink/50 text-xs">Último simulado</p>
             <p className="text-ink font-medium text-sm">{ultimoSimulado.titulo} — {ultimoSimulado.pct}% de acerto</p>
@@ -364,11 +420,11 @@ export default function DashboardAluno() {
 
 function IndicadorCard({ label, value, cor, icon: Icon }: { label: string; value: number | string; cor?: string; icon: React.ComponentType<{ className?: string }> }) {
   return (
-    <div className="bg-white border border-ink/10 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-1">
-        <p className="text-ink/60 text-xs">{label}</p>
-        <Icon className="w-4 h-4 text-ink/25" />
+    <div className="bg-white border border-ink/[0.07] rounded-xl p-4 shadow-soft hover:shadow-card transition-shadow">
+      <div className="w-8 h-8 rounded-full bg-ink/5 flex items-center justify-center mb-2.5">
+        <Icon className="w-3.5 h-3.5 text-ink/50" />
       </div>
+      <p className="text-ink/50 text-xs mb-0.5">{label}</p>
       <p className={`font-serif text-2xl ${cor || 'text-ink'}`}>{value}</p>
     </div>
   )
