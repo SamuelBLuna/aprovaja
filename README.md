@@ -321,3 +321,26 @@ pago do Supabase só por causa disso.
   cards com ícone em círculo, tipografia mais consistente em todas as
   telas. Criei um pequeno sistema de design (`src/components/ui`) pra
   manter tudo com a mesma cara daqui pra frente.
+
+---
+
+### Atualização — desempenho por tópico (professor) + repaginação visual em todas as telas
+
+**Se você já tinha o projeto rodando:**
+
+1. Não tem migration nova nessa leva — só código.
+2. Substitua o projeto inteiro (mais seguro, já que muita coisa visual mudou).
+3. Sem `npm install` novo.
+
+**O que mudou:**
+
+- **Corrigido**: o professor agora também vê o desempenho **por tópico** de
+  cada aluno (clicando numa matéria na tela Alunos), não só por matéria.
+  Isso tinha ficado faltando na rodada anterior — só o lado do aluno tinha
+  sido feito.
+- **Repaginação visual em profundidade**: não foi só trocar cor — refiz a
+  estrutura de várias telas (Questões, Cronograma, Simulados, Configurações,
+  Gerenciar turma, tela de responder questão) com ícones reais em vez de
+  links de texto, seletores visuais em vez de radio buttons crus, badges
+  arredondadas, avatares com iniciais, barra de progresso nas questões
+  práticas, e estados vazios mais acolhedores.

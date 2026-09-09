@@ -1,9 +1,10 @@
 import ConfiguracoesConta from '../../components/ConfiguracoesConta'
+import PageHeader from '../../components/ui/PageHeader'
 
 export default function ConfiguracoesProfessor() {
   return (
     <div>
-      <h1 className="font-serif text-2xl text-ink mb-6">Configurações</h1>
+      <PageHeader title="Configurações" subtitle="Gerencie sua conta." />
       <ConfiguracoesConta />
     </div>
   )

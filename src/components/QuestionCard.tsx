@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CheckCircle2, XCircle, Circle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Questao } from '../lib/types'
@@ -11,9 +12,6 @@ interface QuestionCardProps {
   textoBase?: string | null
   materiaNome?: string | null
   topicoNome?: string | null
-  // true = banco livre (pode responder de novo à vontade)
-  // false (padrão) = "teste" (cronograma/simulado): trava depois da 1ª resposta
-  // e restaura o resultado se o aluno sair e voltar
   permitirRepetir?: boolean
 }
 
@@ -71,41 +69,56 @@ export default function QuestionCard({
     onRespondida?.(acertou)
   }
 
+  const difColor = questao.nivel_dificuldade === 3 ? 'text-erro' : questao.nivel_dificuldade === 2 ? 'text-gold-dark' : 'text-acerto'
+  const difLabel = questao.nivel_dificuldade === 3 ? 'Difícil' : questao.nivel_dificuldade === 2 ? 'Média' : 'Fácil'
+
   if (verificando) {
-    return <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-4 text-sm text-ink/40">Carregando…</div>
+    return (
+      <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 animate-pulse">
+        <div className="h-3 w-24 bg-ink/[0.06] rounded mb-4" />
+        <div className="h-4 w-full bg-ink/[0.06] rounded mb-2" />
+        <div className="h-4 w-4/5 bg-ink/[0.06] rounded" />
+      </div>
+    )
   }
 
   return (
-    <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-4">
+    <div className={`bg-white border rounded-xl shadow-soft p-5 transition-colors ${
+      respondida ? (correta ? 'border-acerto/25' : 'border-erro/25') : 'border-ink/[0.07]'
+    }`}>
       {(materiaNome || topicoNome) && (
-        <div className="flex items-center gap-2 mb-2 text-xs">
-          {materiaNome && <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{materiaNome}</span>}
-          {topicoNome && <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{topicoNome}</span>}
+        <div className="flex items-center flex-wrap gap-1.5 mb-3">
+          {materiaNome && <span className="bg-ink/[0.05] text-ink/60 px-2 py-0.5 rounded-full text-[11px] font-medium">{materiaNome}</span>}
+          {topicoNome && <span className="bg-ink/[0.05] text-ink/60 px-2 py-0.5 rounded-full text-[11px] font-medium">{topicoNome}</span>}
+          <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${difColor} bg-current/10`}>{difLabel}</span>
         </div>
       )}
       {textoBase && (
-        <div className="bg-paper/60 border border-ink/10 rounded p-3 mb-3 text-sm text-ink/70 whitespace-pre-wrap">
+        <div className="bg-paper border border-ink/[0.06] rounded-lg p-4 mb-4 text-sm text-ink/70 leading-relaxed whitespace-pre-wrap">
           {textoBase}
         </div>
       )}
-      <p className="text-sm text-ink mb-3">{questao.enunciado}</p>
+      <p className="text-[15px] text-ink mb-4 leading-relaxed">{questao.enunciado}</p>
 
       {questao.tipo === 'multipla_escolha' ? (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {(questao.alternativas || []).map((alt) => {
             const isEscolha = escolha === alt.id
             const isCorreta = alt.id === questao.resposta_correta
-            let estilo = 'border-ink/15 hover:bg-ink/5'
-            if (respondida && isCorreta) estilo = 'border-acerto bg-acerto/10'
-            else if (respondida && isEscolha && !isCorreta) estilo = 'border-erro bg-erro/10'
+            let estilo = 'border-ink/[0.1] hover:border-ink/20 hover:bg-ink/[0.02]'
+            if (respondida && isCorreta) estilo = 'border-acerto bg-acerto-light'
+            else if (respondida && isEscolha && !isCorreta) estilo = 'border-erro bg-erro-light'
             return (
               <button
                 key={alt.id}
                 disabled={respondida}
                 onClick={() => responder(alt.id)}
-                className={`w-full text-left border rounded px-3 py-2 text-sm flex gap-2 ${estilo} disabled:cursor-default`}
+                className={`w-full text-left border rounded-lg px-3.5 py-3 text-sm flex items-center gap-3 transition-colors ${estilo} disabled:cursor-default`}
               >
-                <span className="font-medium text-ink/60">{alt.id})</span>
+                {respondida && isCorreta ? <CheckCircle2 className="w-4 h-4 text-acerto shrink-0" /> :
+                 respondida && isEscolha ? <XCircle className="w-4 h-4 text-erro shrink-0" /> :
+                 <Circle className="w-4 h-4 text-ink/20 shrink-0" />}
+                <span className="font-medium text-ink/50 shrink-0">{alt.id}</span>
                 <span className="text-ink">{alt.texto}</span>
               </button>
             )
@@ -116,12 +129,12 @@ export default function QuestionCard({
           {['V', 'F'].map((v) => {
             const isEscolha = escolha === v
             const isCorreta = v === questao.resposta_correta
-            let estilo = 'border-ink/15 hover:bg-ink/5'
-            if (respondida && isCorreta) estilo = 'border-acerto bg-acerto/10'
-            else if (respondida && isEscolha && !isCorreta) estilo = 'border-erro bg-erro/10'
+            let estilo = 'border-ink/[0.1] hover:border-ink/20 hover:bg-ink/[0.02]'
+            if (respondida && isCorreta) estilo = 'border-acerto bg-acerto-light'
+            else if (respondida && isEscolha && !isCorreta) estilo = 'border-erro bg-erro-light'
             return (
               <button key={v} disabled={respondida} onClick={() => responder(v)}
-                className={`flex-1 border rounded px-3 py-2 text-sm ${estilo} disabled:cursor-default`}>
+                className={`flex-1 border rounded-lg px-3 py-3 text-sm font-medium transition-colors ${estilo} disabled:cursor-default`}>
                 {v === 'V' ? 'Verdadeiro' : 'Falso'}
               </button>
             )
@@ -130,9 +143,9 @@ export default function QuestionCard({
       )}
 
       {respondida && (
-        <div className={`mt-3 text-sm rounded px-3 py-2 ${correta ? 'bg-acerto/10 text-acerto' : 'bg-erro/10 text-erro'}`}>
-          {correta ? 'Você acertou.' : `Você errou. A resposta correta é ${questao.resposta_correta}.`}
-          {questao.explicacao && <p className="text-ink/70 mt-1">{questao.explicacao}</p>}
+        <div className={`mt-4 text-sm rounded-lg px-4 py-3 ${correta ? 'bg-acerto-light text-acerto' : 'bg-erro-light text-erro'}`}>
+          <p className="font-medium">{correta ? '✓ Você acertou.' : `✕ Você errou. A resposta correta é ${questao.resposta_correta}.`}</p>
+          {questao.explicacao && <p className="text-ink/60 mt-1.5 font-normal">{questao.explicacao}</p>}
         </div>
       )}
     </div>

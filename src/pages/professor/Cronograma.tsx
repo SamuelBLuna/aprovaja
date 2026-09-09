@@ -1,10 +1,12 @@
 import { useEffect, useState, FormEvent } from 'react'
+import { Plus, Settings2, Power } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Turma, Materia, Topico, CronogramaItem, Questao } from '../../lib/types'
 import MonthCalendar from '../../components/MonthCalendar'
 import { isoHoje } from '../../lib/dates'
 import GerenciarTurma from '../../components/GerenciarTurma'
+import PageHeader from '../../components/ui/PageHeader'
 
 type ItemComMateria = CronogramaItem & { materias?: { nome: string; cor: string } | null; topicos?: { nome: string } | null }
 
@@ -240,12 +242,15 @@ export default function Cronograma() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-        <h1 className="font-serif text-[26px] text-ink">Cronograma</h1>
-        <button onClick={() => setShowNovaTurma((v) => !v)} className="border border-ink/15 text-ink px-3 py-2 rounded-lg text-sm hover:bg-ink/5 transition-colors bg-white">
-          {showNovaTurma ? 'Cancelar' : '+ Nova turma'}
-        </button>
-      </div>
+      <PageHeader
+        title="Cronograma"
+        subtitle="Monte o plano de estudos da turma, dia a dia."
+        actions={
+          <button onClick={() => setShowNovaTurma((v) => !v)} className="flex items-center gap-1.5 border border-ink/15 text-ink px-3 py-2 rounded-lg text-sm hover:bg-ink/5 transition-colors bg-white">
+            <Plus className="w-3.5 h-3.5" /> {showNovaTurma ? 'Cancelar' : 'Nova turma'}
+          </button>
+        }
+      />
 
       {showNovaTurma && (
         <form onSubmit={criarTurma} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 mb-6 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
@@ -278,13 +283,15 @@ export default function Cronograma() {
             </select>
             {turmaAtual && (
               <>
-                <span className="text-sm text-ink/60">Código: <strong className="text-ink">{turmaAtual.codigo_turma}</strong></span>
-                <span className="text-sm text-ink/60 hidden sm:inline">{turmaAtual.data_inicio} até {turmaAtual.data_fim}</span>
-                <button onClick={() => setShowGerenciar((v) => !v)} className="text-gold text-sm hover:underline">
-                  {showGerenciar ? 'Fechar gerenciamento' : 'Gerenciar turma'}
+                <span className="text-sm text-ink/50">Código: <strong className="text-ink font-mono tracking-wide">{turmaAtual.codigo_turma}</strong></span>
+                <span className="text-sm text-ink/50 hidden sm:inline">{turmaAtual.data_inicio} até {turmaAtual.data_fim}</span>
+                <button onClick={() => setShowGerenciar((v) => !v)} className="flex items-center gap-1 text-gold hover:text-gold-dark text-sm transition-colors">
+                  <Settings2 className="w-3.5 h-3.5" /> {showGerenciar ? 'Fechar gerenciamento' : 'Gerenciar turma'}
                 </button>
                 {turmaAtual.status === 'ativa' && (
-                  <button onClick={encerrarTurma} className="sm:ml-auto text-erro text-sm hover:underline">Encerrar turma</button>
+                  <button onClick={encerrarTurma} className="flex items-center gap-1 sm:ml-auto text-erro/70 hover:text-erro text-sm transition-colors">
+                    <Power className="w-3.5 h-3.5" /> Encerrar turma
+                  </button>
                 )}
               </>
             )}
@@ -315,8 +322,8 @@ export default function Cronograma() {
                   {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
                 </h2>
                 {turmaAtual?.status === 'ativa' ? (
-                  <button onClick={abrirNovo} className="bg-ink text-white px-3 py-1.5 rounded text-sm hover:bg-ink-light">
-                    + Adicionar atividade
+                  <button onClick={abrirNovo} className="flex items-center gap-1.5 bg-ink text-white px-3 py-1.5 rounded-lg text-sm hover:bg-ink-light transition-colors shadow-soft">
+                    <Plus className="w-3.5 h-3.5" /> Adicionar atividade
                   </button>
                 ) : (
                   <span className="text-xs text-ink/40 italic">Turma encerrada — sem novas atividades</span>
@@ -417,13 +424,15 @@ export default function Cronograma() {
                         <p className="text-ink/40 text-xs mt-1 ml-4">Período: {item.data_inicio} até {item.data_fim}</p>
                       )}
                     </div>
-                    <div className="flex gap-3 shrink-0 ml-3">
-                      <button onClick={() => abrirEdicao(item)} className="text-gold text-xs hover:underline">Editar</button>
-                      <button onClick={() => excluirItem(item.id)} className="text-erro text-xs hover:underline">Remover</button>
+                    <div className="flex items-center gap-1 shrink-0 ml-3">
+                      <button onClick={() => abrirEdicao(item)} title="Editar" className="p-1.5 text-ink/30 hover:text-gold transition-colors"><Settings2 className="w-4 h-4" /></button>
+                      <button onClick={() => excluirItem(item.id)} title="Remover" className="p-1.5 text-ink/30 hover:text-erro transition-colors">✕</button>
                     </div>
                   </div>
                 ))}
-                {itensDoDia.length === 0 && <p className="text-ink/40 text-sm">Nada planejado para este dia ainda.</p>}
+                {itensDoDia.length === 0 && (
+                  <div className="text-center py-10 text-ink/30 text-sm border border-dashed border-ink/10 rounded-xl">Nada planejado para este dia ainda.</div>
+                )}
               </div>
             </div>
           </div>

@@ -1,8 +1,10 @@
 import { useEffect, useState, FormEvent } from 'react'
+import { Plus, BarChart3, Pencil, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Turma, Materia, Topico, Questao, Simulado, SimuladoTentativa } from '../../lib/types'
 import { isoHoje } from '../../lib/dates'
+import PageHeader from '../../components/ui/PageHeader'
 
 function embaralhar<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -260,14 +262,15 @@ export default function Simulados() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-serif text-[26px] text-ink">Simulados</h1>
-        {turmasAtivas.length > 0 && (
-          <button onClick={() => (showForm ? (setShowForm(false), resetForm()) : abrirNovo())} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft">
-            {showForm ? 'Cancelar' : '+ Novo simulado'}
+      <PageHeader
+        title="Simulados"
+        subtitle="Monte provas completas, na ordem certa das matérias."
+        actions={turmasAtivas.length > 0 ? (
+          <button onClick={() => (showForm ? (setShowForm(false), resetForm()) : abrirNovo())} className="flex items-center gap-1.5 bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft">
+            <Plus className="w-4 h-4" /> {showForm ? 'Cancelar' : 'Novo simulado'}
           </button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {showForm && (
         <form onSubmit={salvarSimulado} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 mb-6 space-y-4">
@@ -374,10 +377,10 @@ export default function Simulados() {
                   <p className="text-ink font-medium text-sm truncate">{s.titulo} <span className="text-ink/40 font-normal">— {s.turmas?.nome}</span></p>
                   <p className="text-ink/50 text-xs">{s.tempo_limite_minutos} min {s.data_limite ? `· disponível até ${new Date(s.data_limite).toLocaleString('pt-BR')}` : ''}</p>
                 </div>
-                <div className="flex gap-3 shrink-0">
-                  <button onClick={() => abrirResultados(s.id)} className="text-gold text-xs hover:underline">{aberto ? 'Fechar' : 'Ver resultados'}</button>
-                  <button onClick={() => abrirEdicao(s)} className="text-gold text-xs hover:underline">Editar</button>
-                  <button onClick={() => excluirSimulado(s.id)} className="text-erro text-xs hover:underline">Excluir</button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => abrirResultados(s.id)} title="Ver resultados" className={`p-1.5 transition-colors ${aberto ? 'text-gold' : 'text-ink/30 hover:text-gold'}`}><BarChart3 className="w-4 h-4" /></button>
+                  <button onClick={() => abrirEdicao(s)} title="Editar" className="p-1.5 text-ink/30 hover:text-gold transition-colors"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => excluirSimulado(s.id)} title="Excluir" className="p-1.5 text-ink/30 hover:text-erro transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
 

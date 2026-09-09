@@ -1,4 +1,5 @@
 import { useState, FormEvent } from 'react'
+import { User, KeyRound, AlertOctagon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -65,32 +66,43 @@ export default function ConfiguracoesConta() {
   }
 
   return (
-    <div className="space-y-6 max-w-lg">
-      <form onSubmit={salvarNome} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 space-y-3">
-        <h2 className="font-serif text-lg text-ink">Nome</h2>
-        <input value={nome} onChange={(e) => setNome(e.target.value)} className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
-        {msgNome && <p className="text-sm text-acerto">{msgNome}</p>}
+    <div className="space-y-5 max-w-lg">
+      <form onSubmit={salvarNome} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-full bg-ink/5 flex items-center justify-center"><User className="w-4 h-4 text-ink/50" /></div>
+          <h2 className="font-serif text-lg text-ink">Nome</h2>
+        </div>
+        <input value={nome} onChange={(e) => setNome(e.target.value)} className="w-full border border-ink/15 rounded-lg px-3 py-2.5 text-sm focus:border-gold outline-none transition-colors mb-3" />
+        {msgNome && <p className="text-sm text-acerto mb-3">{msgNome}</p>}
         <button disabled={salvandoNome} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm hover:bg-ink-light transition-colors shadow-soft disabled:opacity-50">
           {salvandoNome ? 'Salvando…' : 'Salvar'}
         </button>
       </form>
 
-      <form onSubmit={salvarSenha} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 space-y-3">
-        <h2 className="font-serif text-lg text-ink">Trocar senha</h2>
-        <input type="password" value={senhaAtual} onChange={(e) => setSenhaAtual(e.target.value)} placeholder="Senha atual"
-          className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
-        <input type="password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} placeholder="Nova senha" minLength={6}
-          className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
-        {msgSenha && <p className={`text-sm ${erroSenha ? 'text-erro' : 'text-acerto'}`}>{msgSenha}</p>}
+      <form onSubmit={salvarSenha} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-full bg-ink/5 flex items-center justify-center"><KeyRound className="w-4 h-4 text-ink/50" /></div>
+          <h2 className="font-serif text-lg text-ink">Trocar senha</h2>
+        </div>
+        <div className="space-y-2.5 mb-3">
+          <input type="password" value={senhaAtual} onChange={(e) => setSenhaAtual(e.target.value)} placeholder="Senha atual"
+            className="w-full border border-ink/15 rounded-lg px-3 py-2.5 text-sm focus:border-gold outline-none transition-colors" />
+          <input type="password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} placeholder="Nova senha" minLength={6}
+            className="w-full border border-ink/15 rounded-lg px-3 py-2.5 text-sm focus:border-gold outline-none transition-colors" />
+        </div>
+        {msgSenha && <p className={`text-sm mb-3 ${erroSenha ? 'text-erro' : 'text-acerto'}`}>{msgSenha}</p>}
         <button disabled={salvandoSenha} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm hover:bg-ink-light transition-colors shadow-soft disabled:opacity-50">
           {salvandoSenha ? 'Salvando…' : 'Atualizar senha'}
         </button>
       </form>
 
-      <div className="bg-white border border-erro/20 rounded p-5 space-y-2">
-        <h2 className="font-serif text-lg text-erro">Excluir conta</h2>
-        <p className="text-ink/60 text-sm">Sua conta será desativada, mas poderá ser recuperada fazendo login novamente antes da remoção definitiva.</p>
-        <button onClick={excluirConta} className="border border-erro text-erro px-4 py-2 rounded text-sm hover:bg-erro/5">Excluir minha conta</button>
+      <div className="bg-white border border-erro/15 rounded-xl shadow-soft p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 rounded-full bg-erro-light flex items-center justify-center"><AlertOctagon className="w-4 h-4 text-erro" /></div>
+          <h2 className="font-serif text-lg text-erro">Excluir conta</h2>
+        </div>
+        <p className="text-ink/50 text-sm mb-3">Sua conta será desativada, mas poderá ser recuperada fazendo login novamente antes da remoção definitiva.</p>
+        <button onClick={excluirConta} className="border border-erro/30 text-erro px-4 py-2 rounded-lg text-sm hover:bg-erro-light transition-colors">Excluir minha conta</button>
       </div>
     </div>
   )

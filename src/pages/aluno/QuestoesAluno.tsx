@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { ArrowLeft, ArrowRight, BookOpen } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Materia, Topico, Questao } from '../../lib/types'
 import QuestionCard from '../../components/QuestionCard'
 import SemTurma from '../../components/SemTurma'
+import PageHeader from '../../components/ui/PageHeader'
 import { usePossuiTurma } from '../../lib/usePossuiTurma'
 
 type QuestaoComGrupo = Questao & { grupos_questoes?: { texto_base: string } | null; topicos?: { nome: string } | null }
@@ -89,16 +91,20 @@ export default function QuestoesAluno() {
       return (
         <div>
           <p className="text-ink/60 mb-4">Nenhuma questão encontrada para esse filtro.</p>
-          <button onClick={() => setPraticando(false)} className="text-gold hover:underline text-sm">Voltar</button>
+          <button onClick={() => setPraticando(false)} className="text-gold hover:text-gold-dark text-sm transition-colors">Voltar</button>
         </div>
       )
     }
     const questaoAtual = questoes[indice]
+    const progresso = Math.round(((indice + 1) / questoes.length) * 100)
     return (
       <div className="max-w-2xl">
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={() => setPraticando(false)} className="text-ink/60 hover:underline text-sm">← Trocar filtro</button>
-          <span className="text-ink/60 text-sm">Questão {indice + 1} de {questoes.length}</span>
+        <div className="flex items-center justify-between mb-2">
+          <button onClick={() => setPraticando(false)} className="flex items-center gap-1 text-ink/50 hover:text-ink text-sm transition-colors"><ArrowLeft className="w-3.5 h-3.5" /> Trocar filtro</button>
+          <span className="text-ink/50 text-sm">{indice + 1} de {questoes.length}</span>
+        </div>
+        <div className="h-1 bg-ink/[0.06] rounded-full mb-4 overflow-hidden">
+          <div className="h-full bg-gold rounded-full transition-all duration-300" style={{ width: `${progresso}%` }} />
         </div>
         <QuestionCard
           key={questaoAtual.id}
@@ -109,8 +115,8 @@ export default function QuestoesAluno() {
           permitirRepetir
         />
         <div className="flex justify-between mt-4">
-          <button disabled={indice === 0} onClick={() => setIndice((i) => i - 1)} className="text-sm text-ink/60 disabled:opacity-30 hover:underline">← Anterior</button>
-          <button disabled={indice === questoes.length - 1} onClick={() => setIndice((i) => i + 1)} className="text-sm text-gold disabled:opacity-30 hover:underline">Próxima →</button>
+          <button disabled={indice === 0} onClick={() => setIndice((i) => i - 1)} className="flex items-center gap-1 text-sm text-ink/50 disabled:opacity-30 hover:text-ink transition-colors"><ArrowLeft className="w-3.5 h-3.5" /> Anterior</button>
+          <button disabled={indice === questoes.length - 1} onClick={() => setIndice((i) => i + 1)} className="flex items-center gap-1 text-sm text-gold hover:text-gold-dark disabled:opacity-30 transition-colors">Próxima <ArrowRight className="w-3.5 h-3.5" /></button>
         </div>
       </div>
     )
@@ -118,21 +124,25 @@ export default function QuestoesAluno() {
 
   return (
     <div>
-      <h1 className="font-serif text-2xl text-ink mb-1">Questões</h1>
-      <p className="text-ink/60 text-sm mb-6">Escolha a matéria (e opcionalmente o tópico) para praticar à vontade.</p>
+      <PageHeader title="Questões" subtitle="Escolha a matéria (e opcionalmente o tópico) para praticar à vontade." />
 
-      <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 max-w-md space-y-3">
-        <select value={materiaId} onChange={(e) => setMateriaId(e.target.value)} className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
-          <option value="">Selecione a matéria</option>
-          {materias.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
-        </select>
-        <select value={topicoId} onChange={(e) => setTopicoId(e.target.value)} disabled={!materiaId} className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white">
-          <option value="">Todos os tópicos</option>
-          {topicos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
-        </select>
-        <button onClick={iniciar} disabled={!materiaId} className="w-full bg-ink text-white py-2 rounded text-sm font-medium hover:bg-ink-light disabled:opacity-40">
-          Começar a praticar
-        </button>
+      <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-6 max-w-md">
+        <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center mb-4">
+          <BookOpen className="w-5 h-5 text-gold-dark" />
+        </div>
+        <div className="space-y-3">
+          <select value={materiaId} onChange={(e) => setMateriaId(e.target.value)} className="w-full border border-ink/15 rounded-lg px-3 py-2.5 text-sm bg-white focus:border-gold outline-none transition-colors">
+            <option value="">Selecione a matéria</option>
+            {materias.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+          </select>
+          <select value={topicoId} onChange={(e) => setTopicoId(e.target.value)} disabled={!materiaId} className="w-full border border-ink/15 rounded-lg px-3 py-2.5 text-sm bg-white focus:border-gold outline-none transition-colors disabled:opacity-50">
+            <option value="">Todos os tópicos</option>
+            {topicos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+          </select>
+          <button onClick={iniciar} disabled={!materiaId} className="w-full bg-ink text-white py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft disabled:opacity-40">
+            Começar a praticar
+          </button>
+        </div>
       </div>
     </div>
   )

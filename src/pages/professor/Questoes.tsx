@@ -1,9 +1,11 @@
 import { useEffect, useState, FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { Plus, Layers, Pencil, Trash2, RotateCcw, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Materia, Topico, GrupoQuestoes, Questao } from '../../lib/types'
 import QuestaoForm, { QuestaoFormValues } from '../../components/QuestaoForm'
+import PageHeader from '../../components/ui/PageHeader'
 
 type Modo = 'lista' | 'nova_avulsa' | 'novo_grupo'
 type GrupoComMateriaTopico = GrupoQuestoes & { materias?: { nome: string } | null; topicos?: { nome: string } | null }
@@ -205,19 +207,20 @@ export default function Questoes() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-        <h1 className="font-serif text-[26px] text-ink">Questões</h1>
-        {modo === 'lista' && (
-          <div className="flex gap-2">
-            <button onClick={() => setModo('novo_grupo')} className="border border-ink/15 text-ink px-3 py-2 rounded-lg text-sm hover:bg-ink/5 transition-colors bg-white">
-              + Grupo de questões (texto-base)
+      <PageHeader
+        title="Questões"
+        subtitle="Seu banco de questões — avulsas ou em grupos com texto-base."
+        actions={modo === 'lista' ? (
+          <>
+            <button onClick={() => setModo('novo_grupo')} className="flex items-center gap-1.5 border border-ink/15 text-ink px-3 py-2 rounded-lg text-sm hover:bg-ink/5 transition-colors bg-white">
+              <Layers className="w-3.5 h-3.5" /> Grupo de questões
             </button>
-            <button onClick={iniciarNovaAvulsa} className="bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft">
-              + Questão avulsa
+            <button onClick={iniciarNovaAvulsa} className="flex items-center gap-1.5 bg-ink text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-ink-light transition-colors shadow-soft">
+              <Plus className="w-4 h-4" /> Questão avulsa
             </button>
-          </div>
-        )}
-      </div>
+          </>
+        ) : undefined}
+      />
 
       {modo === 'nova_avulsa' && (
         <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5 mb-6">
@@ -272,7 +275,7 @@ export default function Questoes() {
       {modo === 'lista' && (
         <>
           {/* GRUPOS */}
-          <h2 className="font-serif text-lg text-ink mb-3">Grupos de questões</h2>
+          <h2 className="font-serif text-lg text-ink mb-3 flex items-center gap-2"><Layers className="w-4 h-4 text-ink/30" /> Grupos de questões</h2>
           <div className="space-y-2 mb-8">
             {grupos.map((g) => {
               const aberto = grupoExpandido === g.id
@@ -280,21 +283,21 @@ export default function Questoes() {
               const editandoInfo = editandoInfoGrupoId === g.id
               return (
                 <div key={g.id} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 cursor-pointer" onClick={() => abrirGrupo(g.id)}>
-                    <div>
-                      <p className="text-ink font-medium text-sm">{g.titulo}</p>
+                  <div className="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-ink/[0.015] transition-colors" onClick={() => abrirGrupo(g.id)}>
+                    <div className="min-w-0">
+                      <p className="text-ink font-medium text-sm truncate">{g.titulo}</p>
                       <p className="text-ink/40 text-xs">{g.materias?.nome}{g.topicos?.nome ? ` — ${g.topicos.nome}` : ''} · {perguntas.length || '…'} pergunta(s)</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button onClick={(e) => { e.stopPropagation(); excluirGrupo(g.id) }} className="text-erro text-xs hover:underline">Excluir</button>
-                      <span className="text-ink/40">{aberto ? '▾' : '▸'}</span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <button onClick={(e) => { e.stopPropagation(); excluirGrupo(g.id) }} className="text-ink/30 hover:text-erro transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <span className={`text-ink/30 transition-transform ${aberto ? 'rotate-90' : ''}`}>›</span>
                     </div>
                   </div>
 
                   {aberto && (
-                    <div className="border-t border-ink/10 px-4 py-4 bg-paper/50 space-y-4">
+                    <div className="border-t border-ink/[0.06] px-4 py-4 bg-paper/60 space-y-4">
                       {editandoInfo ? (
-                        <div className="bg-white border border-gold/40 rounded p-4 space-y-3">
+                        <div className="bg-white border border-gold/40 rounded-lg p-4 space-y-3">
                           <input value={editGrupoTitulo} onChange={(e) => setEditGrupoTitulo(e.target.value)} placeholder="Título do grupo"
                             className="w-full border border-ink/15 rounded-lg px-3 py-2 text-sm focus:border-gold" />
                           <div className="grid grid-cols-2 gap-3">
@@ -363,8 +366,8 @@ export default function Questoes() {
           {/* AVULSAS */}
           <div className="flex flex-wrap items-center gap-3 mb-3">
             <h2 className="font-serif text-lg text-ink">Questões avulsas</h2>
-            <label className="flex items-center gap-1.5 text-sm text-ink/70 ml-auto">
-              <input type="checkbox" checked={somenteRevisao} onChange={(e) => setSomenteRevisao(e.target.checked)} />
+            <label className="flex items-center gap-1.5 text-sm text-ink/60 ml-auto cursor-pointer">
+              <input type="checkbox" checked={somenteRevisao} onChange={(e) => setSomenteRevisao(e.target.checked)} className="accent-gold" />
               Só as que precisam de revisão
             </label>
             <select value={filtroMateria} onChange={(e) => setFiltroMateria(e.target.value)} className="border border-ink/15 rounded-lg px-3 py-1.5 text-sm bg-white">
@@ -374,22 +377,22 @@ export default function Questoes() {
           </div>
           <div className="space-y-2">
             {avulsas.map((q) => (
-              <div key={q.id} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft px-4 py-3 flex items-start justify-between gap-4">
+              <div key={q.id} className="bg-white border border-ink/[0.07] rounded-xl shadow-soft px-4 py-3.5 flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1 text-xs">
-                    <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{q.materias?.nome}</span>
-                    {q.topicos?.nome && <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{q.topicos.nome}</span>}
-                    <span className="bg-ink/5 text-ink/70 px-2 py-0.5 rounded">{q.tipo === 'multipla_escolha' ? 'Múltipla escolha' : 'V ou F'}</span>
-                    {q.precisa_revisao && <span className="bg-erro/10 text-erro px-2 py-0.5 rounded">Precisa revisão</span>}
+                  <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                    <span className="bg-ink/[0.05] text-ink/60 px-2 py-0.5 rounded-full text-[11px] font-medium">{q.materias?.nome}</span>
+                    {q.topicos?.nome && <span className="bg-ink/[0.05] text-ink/60 px-2 py-0.5 rounded-full text-[11px] font-medium">{q.topicos.nome}</span>}
+                    <span className="bg-ink/[0.05] text-ink/60 px-2 py-0.5 rounded-full text-[11px] font-medium">{q.tipo === 'multipla_escolha' ? 'Múltipla escolha' : 'V ou F'}</span>
+                    {q.precisa_revisao && <span className="bg-erro-light text-erro px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Revisão</span>}
                   </div>
                   <p className="text-sm text-ink">{q.enunciado}</p>
                 </div>
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <button onClick={() => iniciarEdicaoAvulsa(q)} className="text-xs text-gold hover:underline">Editar</button>
-                  <button onClick={() => alternarRevisaoAvulsa(q.id, q.precisa_revisao)} className="text-xs text-gold hover:underline">
-                    {q.precisa_revisao ? 'Marcar como revisada' : 'Marcar p/ revisão'}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => iniciarEdicaoAvulsa(q)} title="Editar" className="p-1.5 text-ink/30 hover:text-gold transition-colors"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => alternarRevisaoAvulsa(q.id, q.precisa_revisao)} title={q.precisa_revisao ? 'Marcar como revisada' : 'Marcar p/ revisão'} className={`p-1.5 transition-colors ${q.precisa_revisao ? 'text-erro' : 'text-ink/30 hover:text-erro'}`}>
+                    {q.precisa_revisao ? <RotateCcw className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                   </button>
-                  <button onClick={() => excluirAvulsa(q.id)} className="text-xs text-erro hover:underline">Excluir</button>
+                  <button onClick={() => excluirAvulsa(q.id)} title="Excluir" className="p-1.5 text-ink/30 hover:text-erro transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             ))}
