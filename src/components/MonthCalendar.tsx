@@ -52,20 +52,17 @@ export default function MonthCalendar({ selectedDate, onSelectDate, markedDates 
   }
 
   return (
-    <div className="bg-white border border-ink/[0.07] rounded-xl shadow-soft p-5">
-      <div className="flex items-center justify-between mb-5">
-        <button onClick={() => changeMonth(-1)} className="w-8 h-8 rounded-full hover:bg-ink/5 text-ink/60 hover:text-ink transition-colors text-base" aria-label="Mês anterior">‹</button>
-        <div className="text-center">
-          <p className="font-serif text-xl text-ink leading-tight">{MESES[viewMonth]}</p>
-          <p className="text-ink/35 text-xs tracking-wide">{viewYear}</p>
-        </div>
-        <button onClick={() => changeMonth(1)} className="w-8 h-8 rounded-full hover:bg-ink/5 text-ink/60 hover:text-ink transition-colors text-base" aria-label="Próximo mês">›</button>
+    <div className="bg-white border border-slate-200 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => changeMonth(-1)} className="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors text-sm" aria-label="Mês anterior">‹</button>
+        <p className="text-sm font-semibold text-slate-900">{MESES[viewMonth]} {viewYear}</p>
+        <button onClick={() => changeMonth(1)} className="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors text-sm" aria-label="Próximo mês">›</button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium tracking-wider text-ink/30 mb-2">
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-slate-400 mb-2">
         {DIAS_SEMANA.map((d, i) => <div key={i}>{d}</div>)}
       </div>
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className="grid grid-cols-7 gap-1">
         {cells.map((day, idx) => {
           if (day === null) return <div key={idx} />
           const iso = toISO(viewYear, viewMonth, day)
@@ -76,19 +73,19 @@ export default function MonthCalendar({ selectedDate, onSelectDate, markedDates 
             <button
               key={idx}
               onClick={() => onSelectDate(iso)}
-              className={`relative aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-150
-                ${isSelected ? 'bg-ink text-white shadow-soft scale-105' : isToday ? 'bg-gold/10 text-ink ring-1 ring-gold/40' : 'text-ink/80 hover:bg-ink/[0.05]'}`}
+              className={`relative aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-colors
+                ${isSelected ? 'bg-ink text-white' : isToday ? 'bg-ink-50 text-ink font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}
             >
               {day}
               {hasMark && (
-                <span className={`absolute bottom-1 w-1 h-1 rounded-full ${isSelected ? 'bg-gold-light' : 'bg-gold'}`} />
+                <span className={`absolute bottom-1 w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-gold'}`} />
               )}
             </button>
           )
         })}
       </div>
 
-      <button onClick={irParaHoje} className="mt-5 w-full text-center text-xs font-medium text-gold hover:text-gold-dark transition-colors py-2 border-t border-ink/[0.06] pt-3">
+      <button onClick={irParaHoje} className="mt-4 w-full text-center text-xs font-semibold text-ink hover:text-ink-dark transition-colors py-2 border-t border-slate-100 pt-3">
         Ir para hoje
       </button>
     </div>

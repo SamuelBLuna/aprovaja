@@ -1,109 +1,127 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import {
-  LayoutDashboard, CalendarDays, BookOpen, HelpCircle, ClipboardList,
-  Users, Settings, LogOut, Menu, X, TrendingUp,
-} from 'lucide-react'
+import { ChevronDown, LogOut, Settings, Menu, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import NotificacoesBanner from './NotificacoesBanner'
 
 const professorLinks = [
-  { to: '/professor', label: 'Painel', end: true, icon: LayoutDashboard },
-  { to: '/professor/cronograma', label: 'Cronograma', icon: CalendarDays },
-  { to: '/professor/materias', label: 'Matérias', icon: BookOpen },
-  { to: '/professor/questoes', label: 'Questões', icon: HelpCircle },
-  { to: '/professor/simulados', label: 'Simulados', icon: ClipboardList },
-  { to: '/professor/alunos', label: 'Alunos', icon: Users },
-  { to: '/professor/configuracoes', label: 'Configurações', icon: Settings },
+ { to: '/professor', label: 'Painel', end: true },
+ { to: '/professor/cronograma', label: 'Cronograma' },
+ { to: '/professor/materias', label: 'Matérias' },
+ { to: '/professor/questoes', label: 'Questões' },
+ { to: '/professor/simulados', label: 'Simulados' },
+ { to: '/professor/alunos', label: 'Alunos' },
 ]
 
 const alunoLinks = [
-  { to: '/aluno', label: 'Painel', end: true, icon: LayoutDashboard },
-  { to: '/aluno/questoes', label: 'Questões', icon: HelpCircle },
-  { to: '/aluno/simulados', label: 'Simulados', icon: ClipboardList },
-  { to: '/aluno/desempenho', label: 'Desempenho', icon: TrendingUp },
-  { to: '/aluno/configuracoes', label: 'Configurações', icon: Settings },
+ { to: '/aluno', label: 'Painel', end: true },
+ { to: '/aluno/questoes', label: 'Questões' },
+ { to: '/aluno/simulados', label: 'Simulados' },
+ { to: '/aluno/desempenho', label: 'Desempenho' },
 ]
 
 function iniciais(nome?: string) {
-  if (!nome) return '?'
-  const partes = nome.trim().split(' ')
-  return (partes[0]?.[0] || '') + (partes.length > 1 ? partes[partes.length - 1][0] : '')
+ if (!nome) return '?'
+ const partes = nome.trim().split(' ')
+ return ((partes[0]?.[0] || '') + (partes.length > 1 ? partes[partes.length - 1][0] : '')).toUpperCase()
 }
 
 export default function Layout() {
-  const { profile, signOut } = useAuth()
-  const [menuAberto, setMenuAberto] = useState(false)
-  const links = profile?.role === 'professor' ? professorLinks : alunoLinks
+ const { profile, signOut } = useAuth()
+ const [menuAberto, setMenuAberto] = useState(false)
+ const [perfilAberto, setPerfilAberto] = useState(false)
+ const perfilRef = useRef<HTMLDivElement>(null)
+ const links = profile?.role === 'professor' ? professorLinks : alunoLinks
+ const configuracoesPath = profile?.role === 'professor' ? '/professor/configuracoes' : '/aluno/configuracoes'
 
-  return (
-    <div className="min-h-screen flex bg-paper">
-      {/* topo mobile */}
-      <div className="md:hidden fixed top-0 inset-x-0 z-30 bg-ink-gradient text-paper flex items-center justify-between px-4 h-14 shadow-lift">
-        <span className="font-serif text-xl">aprova<span className="text-gold">JA</span></span>
-        <button onClick={() => setMenuAberto((v) => !v)} className="p-2" aria-label="Abrir menu">
-          {menuAberto ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-      </div>
+ useEffect(() => {
+ function fechar(e: MouseEvent) {
+ if (perfilRef.current && !perfilRef.current.contains(e.target as Node)) setPerfilAberto(false)
+ }
+ document.addEventListener('mousedown', fechar)
+ return () => document.removeEventListener('mousedown', fechar)
+ }, [])
 
-      {menuAberto && (
-        <div className="md:hidden fixed inset-0 z-20 bg-ink-dark/50 backdrop-blur-sm" onClick={() => setMenuAberto(false)} />
-      )}
+ return (
+ <div className="min-h-screen bg-paper">
+ <header className="sticky top-0 z-30 bg-white border-b border-slate-200">
+ <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+ <div className="flex items-center gap-8 min-w-0">
+ <span className="font-extrabold text-lg text-ink shrink-0 tracking-tight">aprova<span className="text-gold">JA</span></span>
+ <nav className="hidden md:flex items-center gap-1">
+ {links.map((link) => (
+ <NavLink
+ key={link.to}
+ to={link.to}
+ end={link.end}
+ className={({ isActive }) =>
+ `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+ isActive ? 'text-ink bg-ink-50' : 'text-slate-500 hover:text-ink hover:bg-slate-50'
+ }`
+ }
+ >
+ {link.label}
+ </NavLink>
+ ))}
+ </nav>
+ </div>
 
-      <aside className={`w-64 shrink-0 bg-ink-gradient text-paper flex flex-col fixed md:static inset-y-0 left-0 z-30 transition-transform
-        ${menuAberto ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        <div className="px-6 py-7 hidden md:block">
-          <span className="font-serif text-[26px] tracking-tight">aprova<span className="text-gold">JA</span></span>
-          <p className="text-paper/35 text-[10px] tracking-[0.15em] uppercase mt-1 font-medium">
-            {profile?.role === 'professor' ? 'Painel do professor' : 'Painel do aluno'}
-          </p>
-        </div>
-        <div className="mx-4 border-t border-white/[0.08] hidden md:block" />
-        <nav className="flex-1 px-3 py-4 space-y-0.5 mt-14 md:mt-4">
-          {links.map((link) => {
-            const Icon = link.icon
-            return (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                end={link.end}
-                onClick={() => setMenuAberto(false)}
-                className={({ isActive }) =>
-                  `relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
-                    isActive ? 'bg-white/[0.08] text-white font-medium' : 'text-paper/60 hover:bg-white/[0.04] hover:text-paper/90'
-                  }`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-gold" />}
-                    <Icon className="w-[18px] h-[18px] shrink-0" strokeWidth={1.75} />
-                    <span>{link.label}</span>
-                  </>
-                )}
-              </NavLink>
-            )
-          })}
-        </nav>
-        <div className="mx-4 border-t border-white/[0.08]" />
-        <div className="px-4 py-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gold/20 text-gold border border-gold/30 flex items-center justify-center text-xs font-semibold shrink-0">
-            {iniciais(profile?.nome).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-paper/85 text-sm truncate">{profile?.nome}</p>
-            <button onClick={() => signOut()} className="flex items-center gap-1 text-paper/40 hover:text-gold text-xs transition-colors">
-              <LogOut className="w-3 h-3" /> Sair
-            </button>
-          </div>
-        </div>
-      </aside>
-      <main className="flex-1 overflow-y-auto mt-14 md:mt-0 min-w-0">
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-9">
-          {profile?.role === 'aluno' && <NotificacoesBanner />}
-          <Outlet />
-        </div>
-      </main>
-    </div>
-  )
+ <div className="flex items-center gap-3">
+ <button className="md:hidden p-2 text-slate-500" onClick={() => setMenuAberto((v) => !v)} aria-label="Abrir menu">
+ {menuAberto ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+ </button>
+
+ <div className="relative hidden md:block" ref={perfilRef}>
+ <button onClick={() => setPerfilAberto((v) => !v)} className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-full hover:bg-slate-50 transition-colors">
+ <div className="w-8 h-8 rounded-full bg-ink text-white flex items-center justify-center text-xs font-semibold">
+ {iniciais(profile?.nome)}
+ </div>
+ <span className="text-sm text-slate-700 font-medium max-w-[120px] truncate">{profile?.nome?.split(' ')[0]}</span>
+ <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+ </button>
+ {perfilAberto && (
+ <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-xl py-1.5 animate-[fadeIn_0.1s_ease-out]">
+ <div className="px-3.5 py-2 border-b border-slate-100">
+ <p className="text-sm font-medium text-slate-800 truncate">{profile?.nome}</p>
+ <p className="text-xs text-slate-400 truncate">{profile?.email}</p>
+ </div>
+ <NavLink to={configuracoesPath} onClick={() => setPerfilAberto(false)} className="flex items-center gap-2 px-3.5 py-2 text-sm text-slate-600 hover:bg-slate-50">
+ <Settings className="w-4 h-4" /> Configurações
+ </NavLink>
+ <button onClick={() => signOut()} className="w-full flex items-center gap-2 px-3.5 py-2 text-sm text-erro hover:bg-erro-light">
+ <LogOut className="w-4 h-4" /> Sair
+ </button>
+ </div>
+ )}
+ </div>
+ </div>
+ </div>
+
+ {menuAberto && (
+ <nav className="md:hidden border-t border-slate-100 px-4 py-2 space-y-0.5">
+ {links.map((link) => (
+ <NavLink
+ key={link.to}
+ to={link.to}
+ end={link.end}
+ onClick={() => setMenuAberto(false)}
+ className={({ isActive }) => `block px-3 py-2.5 rounded-lg text-sm font-medium ${isActive ? 'text-ink bg-ink-50' : 'text-slate-600'}`}
+ >
+ {link.label}
+ </NavLink>
+ ))}
+ <NavLink to={configuracoesPath} onClick={() => setMenuAberto(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600">
+ Configurações
+ </NavLink>
+ <button onClick={() => signOut()} className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-erro">Sair</button>
+ </nav>
+ )}
+ </header>
+
+ <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+ {profile?.role === 'aluno' && <NotificacoesBanner />}
+ <Outlet />
+ </main>
+ </div>
+ )
 }

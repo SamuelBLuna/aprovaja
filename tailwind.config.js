@@ -4,41 +4,41 @@ export default {
   theme: {
     extend: {
       colors: {
+        // azul marinho — cor de marca e ações primárias
         ink: {
-          DEFAULT: '#1B2A4A',
-          light: '#2C4066',
-          dark: '#0D1526',
-          50: '#F1F3F7',
+          DEFAULT: '#1E3A8A',
+          light: '#2563EB',
+          dark: '#152B63',
+          50: '#EFF4FF',
         },
         paper: {
-          DEFAULT: '#F7F5F0',
-          dark: '#EFEBE2',
+          DEFAULT: '#F8FAFC',
+          dark: '#F1F5F9',
         },
+        // laranja/âmbar — usado só em destaques funcionais (sequência, alerta)
         gold: {
-          DEFAULT: '#C9973E',
-          light: '#E3B968',
-          dark: '#A87A2C',
+          DEFAULT: '#F59E0B',
+          light: '#FEF3C7',
+          dark: '#B45309',
         },
-        acerto: { DEFAULT: '#2F6B4F', light: '#E8F2ED' },
-        erro: { DEFAULT: '#B23A34', light: '#FBEBEA' },
+        acerto: { DEFAULT: '#16A34A', light: '#DCFCE7' },
+        erro: { DEFAULT: '#DC2626', light: '#FEE2E2' },
+        info: { DEFAULT: '#0284C7', light: '#E0F2FE' },
       },
       fontFamily: {
-        serif: ['"Lora"', 'Georgia', 'serif'],
+        serif: ['"Inter"', 'system-ui', 'sans-serif'],
         sans: ['"Inter"', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
-        DEFAULT: '6px',
-        xl: '14px',
-        '2xl': '20px',
+        DEFAULT: '8px',
+        xl: '12px',
+        '2xl': '16px',
       },
       boxShadow: {
-        soft: '0 1px 2px rgba(27,42,74,0.04), 0 4px 12px rgba(27,42,74,0.05)',
-        card: '0 2px 4px rgba(27,42,74,0.04), 0 8px 24px rgba(27,42,74,0.06)',
-        lift: '0 8px 16px rgba(27,42,74,0.08), 0 2px 6px rgba(27,42,74,0.06)',
-        gold: '0 4px 14px rgba(201,151,62,0.25)',
-      },
-      backgroundImage: {
-        'ink-gradient': 'linear-gradient(160deg, #1B2A4A 0%, #101A30 100%)',
+        soft: '0 1px 2px rgba(15,23,42,0.04)',
+        card: '0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04)',
+        lift: '0 4px 12px rgba(15,23,42,0.1)',
+        glow: '0 0 0 3px rgba(37,99,235,0.15)',
       },
     },
   },

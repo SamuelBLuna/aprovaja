@@ -22,37 +22,37 @@ import DesempenhoAluno from './pages/aluno/DesempenhoAluno'
 import ConfiguracoesAluno from './pages/aluno/ConfiguracoesAluno'
 
 export default function App() {
-  const { session, profile, loading } = useAuth()
+ const { session, profile, loading } = useAuth()
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-paper text-ink">Carregando…</div>
-  }
+ if (loading) {
+ return <div className="min-h-screen flex items-center justify-center bg-paper text-ink">Carregando…</div>
+ }
 
-  return (
-    <Routes>
-      <Route path="/login" element={session ? <Navigate to={profile?.role === 'professor' ? '/professor' : '/aluno'} /> : <Login />} />
-      <Route path="/cadastro" element={session ? <Navigate to="/aluno" /> : <SignupAluno />} />
-      <Route path="/recuperar-conta" element={session ? <RecuperarConta /> : <Navigate to="/login" />} />
+ return (
+ <Routes>
+ <Route path="/login" element={session ? <Navigate to={profile?.role === 'professor' ? '/professor' : '/aluno'} /> : <Login />} />
+ <Route path="/cadastro" element={session ? <Navigate to="/aluno" /> : <SignupAluno />} />
+ <Route path="/recuperar-conta" element={session ? <RecuperarConta /> : <Navigate to="/login" />} />
 
-      <Route path="/professor" element={<ProtectedRoute role="professor"><Layout /></ProtectedRoute>}>
-        <Route index element={<DashboardProfessor />} />
-        <Route path="cronograma" element={<Cronograma />} />
-        <Route path="materias" element={<Materias />} />
-        <Route path="questoes" element={<QuestoesProfessor />} />
-        <Route path="simulados" element={<Simulados />} />
-        <Route path="alunos" element={<Alunos />} />
-        <Route path="configuracoes" element={<ConfiguracoesProfessor />} />
-      </Route>
+ <Route path="/professor" element={<ProtectedRoute role="professor"><Layout /></ProtectedRoute>}>
+ <Route index element={<DashboardProfessor />} />
+ <Route path="cronograma" element={<Cronograma />} />
+ <Route path="materias" element={<Materias />} />
+ <Route path="questoes" element={<QuestoesProfessor />} />
+ <Route path="simulados" element={<Simulados />} />
+ <Route path="alunos" element={<Alunos />} />
+ <Route path="configuracoes" element={<ConfiguracoesProfessor />} />
+ </Route>
 
-      <Route path="/aluno" element={<ProtectedRoute role="aluno"><Layout /></ProtectedRoute>}>
-        <Route index element={<DashboardAluno />} />
-        <Route path="questoes" element={<QuestoesAluno />} />
-        <Route path="simulados" element={<SimuladosAluno />} />
-        <Route path="desempenho" element={<DesempenhoAluno />} />
-        <Route path="configuracoes" element={<ConfiguracoesAluno />} />
-      </Route>
+ <Route path="/aluno" element={<ProtectedRoute role="aluno"><Layout /></ProtectedRoute>}>
+ <Route index element={<DashboardAluno />} />
+ <Route path="questoes" element={<QuestoesAluno />} />
+ <Route path="simulados" element={<SimuladosAluno />} />
+ <Route path="desempenho" element={<DesempenhoAluno />} />
+ <Route path="configuracoes" element={<ConfiguracoesAluno />} />
+ </Route>
 
-      <Route path="*" element={<Navigate to={session ? (profile?.role === 'professor' ? '/professor' : '/aluno') : '/login'} replace />} />
-    </Routes>
-  )
+ <Route path="*" element={<Navigate to={session ? (profile?.role === 'professor' ? '/professor' : '/aluno') : '/login'} replace />} />
+ </Routes>
+ )
 }

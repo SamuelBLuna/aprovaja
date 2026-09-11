@@ -344,3 +344,35 @@ pago do Supabase só por causa disso.
   links de texto, seletores visuais em vez de radio buttons crus, badges
   arredondadas, avatares com iniciais, barra de progresso nas questões
   práticas, e estados vazios mais acolhedores.
+
+---
+
+### Atualização — visual reconstruído no padrão Questionei.com
+
+Essa foi uma reconstrução de verdade do sistema visual, baseada em prints
+que você mandou do Questionei.com — não é mais o estilo roxo/vibrante da
+tentativa anterior.
+
+**Se você já tinha o projeto rodando:**
+
+1. Sem migration nova.
+2. Substitua o projeto inteiro (paleta, fontes e o layout inteiro mudaram).
+3. Sem `npm install` novo.
+
+**O que mudou:**
+
+- **Menu virou barra horizontal no topo** (não mais lateral), com o nome
+  da conta e avatar de iniciais no canto direito, igual ao Questionei.
+- **Paleta**: azul marinho como cor principal (era roxo), branco e cinza
+  neutro no resto, com cores só aparecendo por função — verde para acerto,
+  vermelho para erro, âmbar para destaque/sequência. Nada de gradiente ou
+  sombra pesada: cards brancos com borda fina, no estilo "produto de dados"
+  do Questionei.
+- **Tipografia**: tirei a fonte serifada, ficou tudo em Inter (a mesma
+  família, só que sem o ar "documento").
+- **Painéis (Dashboard)**: reconstruídos no padrão de cards de estatística
+  do Questionei — ícone colorido num quadrado arredondado, label pequeno,
+  número grande embaixo.
+- **Estados vazios**: ícone dentro de um círculo azul marinho, título,
+  descrição — igual à tela de Simulados do Questionei quando ainda não
+  tem nenhum criado.

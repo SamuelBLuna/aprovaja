@@ -9,13 +9,13 @@ import './index.css'
 // Usamos HashRouter (URLs com #) porque o GitHub Pages não sabe
 // redirecionar rotas de SPA para o index.html — assim funciona sem configuração extra.
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <HashRouter>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </HashRouter>
-    </ErrorBoundary>
-  </React.StrictMode>,
+ <React.StrictMode>
+ <ErrorBoundary>
+ <HashRouter>
+ <AuthProvider>
+ <App />
+ </AuthProvider>
+ </HashRouter>
+ </ErrorBoundary>
+ </React.StrictMode>,
 )
